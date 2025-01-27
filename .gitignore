@@ -1,0 +1,87 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.gz
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build output
+dist/
+build/
+.next/
+out/
+
+# Production environment
+.env
+.env.local
+.env.*.local
+
+# Test environment
+.nyc_output/
+coverage/
+*.lcov
+
+# Debugging files
+*.swp
+*.swo
+*.swn
+*.log
+*.tgz
+*.cache
+.cache/
+.cache-loader/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.pid
+*.seed
+*.pid.lock
+
+# Local environment files
+.envrc
+.env.bak
+.env.example
+
+# Yarn and package-lock files for cross-package managers
+.pnp
+.pnp.js
+.yarn-integrity
+
+# Optional npm cache directory
+.npm/
+
+# TypeScript
+*.tsbuildinfo
+
+# Parcel-bundler cache
+.cache/
+
+# Other files
+*.sqlite
+*.sqlite3
+*.db
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+fair-smoke-448809-s8-c3f78b08f95e.json

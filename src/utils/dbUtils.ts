@@ -26,7 +26,10 @@ export const createTicket = async (data: Ticket) => {
  * @param updateData - The data to update
  * @returns The result of the update operation
  */
-export const updateTicket = async (id: string, updateData: Record<string, any>) => {
+export const updateTicket = async (
+  id: string,
+  updateData: Record<string, any>
+) => {
   try {
     const db = await connectToDatabase();
     const collection = db.collection("tickets");
@@ -62,6 +65,170 @@ export const getTicketById = async (id: string) => {
     return ticket;
   } catch (error) {
     console.error("Error retrieving ticket:", error);
+    throw error;
+  }
+};
+
+/**
+ * Perform a fuzzy search on the tickets collection
+ * @param searchQuery - The query string to search for
+ * @returns The search filter for MongoDB
+ */
+export const searchTickets = async (
+  searchQuery: string,
+  page: number,
+  limit: number
+) => {
+  try {
+    const db = await connectToDatabase();
+    const collection = db.collection("tickets");
+
+    // Calculate the number of documents to skip for pagination
+    const skip = (page - 1) * limit;
+
+    // Pipeline for the search operation
+    const pipeline = [
+      {
+        $search: {
+          text: {
+            query: searchQuery,
+            path: ["stage", "name", "email", "rollNumber", "contactNumber"],
+            fuzzy: {},
+          },
+        },
+      },
+      {
+        $project: {
+          stage: 1,
+          name: 1,
+          email: 1,
+          rollNumber: 1,
+          contactNumber: 1,
+          degree: 1,
+          year: 1,
+          branch: 1,
+          createdAt: 1,
+          payment_proof: 1,
+          score: { $meta: "searchScore" },
+        },
+      },
+      {
+        $sort: { score: -1 },
+      },
+      {
+        $skip: skip, // Skip documents based on the page and limit
+      },
+      {
+        $limit: limit, // Limit the number of documents per page
+      },
+    ];
+
+    // Get the results from the aggregation pipeline
+    const result = await collection.aggregate(pipeline).toArray();
+    const total = result.length
+
+    return {
+      total,
+      page,
+      limit,
+      tickets: result,
+    };
+  } catch (error) {
+    console.error("Error searching tickets:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get all tickets with pagination and fuzzy search functionality
+ * @param page - The current page number
+ * @param limit - The number of tickets per page
+ * @param skip - The number of documents to skip for pagination
+ * @returns The tickets matching the search query with pagination
+ */
+export const getAllTickets = async (
+  page: number,
+  limit: number,
+  skip: number
+) => {
+  try {
+    const db = await connectToDatabase();
+    const collection = db.collection("tickets");
+
+    const totalTickets = await collection.countDocuments();
+    const tickets = await collection
+      .find({})
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return {
+      total: totalTickets,
+      page,
+      limit,
+      tickets,
+    };
+  } catch (error) {
+    console.error("Error fetching paginated tickets:", error);
+    throw error;
+  }
+};
+
+/**
+ * Verify the payment for a specific ticket
+ * @param ticketId - The ID of the ticket to verify payment for
+ * @returns The updated ticket information
+ */
+export const verifyTicketPayment = async (ticketId: string) => {
+  try {
+    const db = await connectToDatabase();
+    const collection = db.collection("tickets");
+
+    const filter = { _id: new ObjectId(ticketId) };
+
+    const updateDoc = { $set: { payment_verified: true } };
+    
+    const result = await collection.updateOne(filter, updateDoc);
+
+    if (result.matchedCount === 0) {
+      console.log(`Ticket with ID ${ticketId} not found`);
+      return null;
+    }
+
+    const updatedTicket = await collection.findOne(filter);
+    return updatedTicket;
+  } catch (error) {
+    console.error("Error verifying payment:", error);
+    throw error;
+  }
+};
+
+/**
+ * Mark the ticket as given (delivered)
+ * @param ticketId - The ID of the ticket to mark as given
+ * @returns The updated ticket information
+ */
+export const markTicketAsGiven = async (ticketId: string) => {
+  try {
+    const db = await connectToDatabase();
+    const collection = db.collection("tickets");
+
+    const filter = { _id: new ObjectId(ticketId) };
+
+    const updateDoc = { $set: { ticket_given: true } };
+
+    const result = await collection.updateOne(filter, updateDoc);
+
+    if (result.matchedCount === 0) {
+      console.log(`Ticket with ID ${ticketId} not found`);
+      return null;
+    }
+
+    const updatedTicket = await collection.findOne(filter);
+    return updatedTicket;
+  } catch (error) {
+    console.error("Error marking ticket as given:", error);
     throw error;
   }
 };

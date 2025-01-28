@@ -6,7 +6,6 @@ prompt() {
 }
 
 NODE_VERSION=$(prompt "Enter the Node.js version to install" "15.0.0")
-REPO_URL=$(prompt "Enter the GitHub repository URL to clone" "https://github.com/example/repo.git")
 SERVER_PORT=$(prompt "Enter the default port your server starts on" "8001")
 DOMAIN_NAME=$(prompt "Enter your domain name" "yourdomain.com")
 
@@ -16,8 +15,6 @@ sudo apt install -y curl git ufw nginx
 curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.32.0/install.sh | bash
 source ~/.nvm/nvm.sh
 nvm install $NODE_VERSION
-
-git clone $REPO_URL
 
 # Set up UFW firewall
 sudo ufw enable

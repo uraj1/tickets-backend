@@ -56,12 +56,16 @@ ticketsRouter.post("/save-progress", async (req: Request, res: any) => {
       )}`
     );
 
-    const createdTicket = await createTicket({ stage: "1", ...data, createdAt: new Date() });
+    const createdTicket = await createTicket({
+      stage: "1",
+      ...data,
+      createdAt: new Date(),
+      payment_verified: false,
+      ticket_given: false,
+    });
     logger.info(`Ticket created successfully with ID: ${createdTicket.id}`);
 
-    res
-      .status(200)
-      .json({ id: createdTicket, message: `Success at stage 1` });
+    res.status(200).json({ id: createdTicket, message: `Success at stage 1` });
   } catch (e: any) {
     if (e instanceof z.ZodError) {
       logger.error(`Validation error: ${JSON.stringify(e.errors)}`);

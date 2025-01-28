@@ -4,6 +4,7 @@ import bodyParser from "body-parser";
 import { limiter } from "./config/rateLimit";
 import ticketsRouter from "./routes/ticketRoute";
 import logsRouter from "./routes/logsRouter";
+import ticketAdminRouter from "./routes/ticketAdminRoute";
 
 const app = express();
 
@@ -24,5 +25,6 @@ app.use(express.static("public"));
 
 app.use('/api/v1', ticketsRouter);
 app.use('/logs', logsRouter);
+app.use('/admin', ticketAdminRouter)
 
 export default app;

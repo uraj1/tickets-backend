@@ -16,7 +16,10 @@ export default class Ticket {
     public ticket_given: Bool,
     public ticket_number?: string,
     public payment_proof?: string,
+    public entry_marked?: Bool,
     public sheetId?: string,
+    public email_sent?: Bool,
+    public last_email_sent_at?: Date,
     public id?: ObjectId
   ) {}
 }

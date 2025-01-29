@@ -1,7 +1,38 @@
 import express, { Request, Response } from "express";
-import { getAllTickets, searchTickets, verifyTicketPayment, markTicketAsGiven } from "../utils/dbUtils"; // Assuming these functions are defined in your dbUtils
+import {
+  getAllTickets,
+  searchTickets,
+  verifyTicketPayment,
+  markTicketAsGiven,
+  updateTicket,
+  toggleEntryMarked,
+} from "../utils/dbUtils"; // Assuming these functions are defined in your dbUtils
+import multer from "multer";
+import { uploadToS3 } from "../services/s3.service";
+import { logger } from "../services/logger.service";
 
 const ticketAdminRouter = express.Router();
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "application/pdf",
+];
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: (_, file, cb) => {
+    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      return cb(
+        new Error("Invalid file type. Only images and PDFs are allowed.")
+      );
+    }
+    cb(null, true);
+  },
+});
 
 /**
  * Route to fetch paginated and optionally searched tickets
@@ -56,22 +87,29 @@ ticketAdminRouter.get("/tickets/fuzzy", async (req: Request, res: any) => {
  * @param {string} ticketId - The ID of the ticket to verify payment for
  * @returns {Object} Updated ticket information or an error message
  */
-ticketAdminRouter.post("/verify-payment/:ticketId", async (req: Request, res: any) => {
-  try {
-    const { ticketId } = req.params;
-    
-    const result = await verifyTicketPayment(ticketId);
-    
-    if (!result) {
-      return res.status(404).json({ message: "Ticket not found or payment verification failed" });
+ticketAdminRouter.post(
+  "/verify-payment/:ticketId",
+  async (req: Request, res: any) => {
+    try {
+      const { ticketId } = req.params;
+
+      const result = await verifyTicketPayment(ticketId);
+
+      if (!result) {
+        return res
+          .status(404)
+          .json({ message: "Ticket not found or payment verification failed" });
+      }
+
+      res
+        .status(200)
+        .json({ message: "Payment verified successfully", ticket: result });
+    } catch (error) {
+      console.error("Error in verifying payment:", error);
+      res.status(500).json({ message: "Error verifying payment", error });
     }
-    
-    res.status(200).json({ message: "Payment verified successfully", ticket: result });
-  } catch (error) {
-    console.error("Error in verifying payment:", error);
-    res.status(500).json({ message: "Error verifying payment", error });
   }
-});
+);
 
 /**
  * Route to mark a ticket as given (delivered)
@@ -79,22 +117,119 @@ ticketAdminRouter.post("/verify-payment/:ticketId", async (req: Request, res: an
  * @param {string} ticketId - The ID of the ticket to mark as given
  * @returns {Object} Updated ticket information or an error message
  */
-ticketAdminRouter.post("/mark-ticket-given/:ticketId", async (req: Request, res: any) => {
-  try {
-    const { ticketId } = req.params;
-    const { ticketNumber } = await req.body
-    
-    const result = await markTicketAsGiven(ticketId, ticketNumber);
-    
-    if (!result) {
-      return res.status(404).json({ message: "Ticket not found or ticket already marked as given" });
-    }
-    
-    res.status(200).json({ message: "Ticket marked as given successfully", ticket: result });
-  } catch (error) {
-    console.error("Error in marking ticket as given:", error);
-    res.status(500).json({ message: "Error marking ticket as given", error });
-  }
-});
+ticketAdminRouter.post(
+  "/mark-ticket-given/:ticketId",
+  async (req: Request, res: any) => {
+    try {
+      const { ticketId } = req.params;
+      const { ticketNumber } = await req.body;
 
-export default ticketAdminRouter
+      const result = await markTicketAsGiven(ticketId, ticketNumber);
+
+      if (!result) {
+        return res.status(404).json({
+          message: "Ticket not found or ticket already marked as given",
+        });
+      }
+
+      res.status(200).json({
+        message: "Ticket marked as given successfully",
+        ticket: result,
+      });
+    } catch (error) {
+      console.error("Error in marking ticket as given:", error);
+      res.status(500).json({ message: "Error marking ticket as given", error });
+    }
+  }
+);
+
+/**
+ * Route to toggle the entry_marked field of a ticket
+ * @route POST /admin/toggle-entry-marked/:ticketId
+ * @param {string} ticketId - The ID of the ticket
+ * @returns {Object} Updated ticket information or an error message
+ */
+ticketAdminRouter.post(
+  "/toggle-entry-marked/:ticketId",
+  async (req: Request, res: any) => {
+    try {
+      const { ticketId } = req.params;
+
+      const result = await toggleEntryMarked(ticketId);
+
+      if (!result) {
+        return res.status(404).json({
+          message: "Ticket not found",
+        });
+      }
+
+      res.status(200).json({
+        message: "Entry marked status toggled successfully",
+        ticket: result,
+      });
+    } catch (error) {
+      console.error("Error toggling entry_marked:", error);
+      res.status(500).json({ message: "Error toggling entry_marked", error });
+    }
+  }
+);
+
+ticketAdminRouter.post(
+  "/tickets/finalize",
+  upload.single("file"),
+  async (req: Request, res: any) => {
+    try {
+      const { id } = req.body;
+
+      if (!id) {
+        return res.status(400).json({ message: "ID is required" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const { mimetype, buffer, size, originalname } = req.file;
+
+      if (!ALLOWED_MIME_TYPES.includes(mimetype)) {
+        return res.status(400).json({
+          message: "Invalid file type. Only images and PDFs are allowed.",
+        });
+      }
+
+      if (size > MAX_FILE_SIZE) {
+        return res.status(400).json({
+          message: `File size exceeds the limit of ${
+            MAX_FILE_SIZE / (1024 * 1024)
+          } MB.`,
+        });
+      }
+
+      const fileName = `payment_proof_${id}`;
+      var base64data = Buffer.from(buffer as any, "binary");
+      const s3Response = await uploadToS3(
+        "bucket.tedx",
+        base64data,
+        fileName,
+        mimetype
+      );
+
+      await updateTicket(id, { stage: "2", payment_proof: s3Response });
+
+      logger.info(`File upload for ID: ${id}`);
+      res.status(200).json({
+        message: "File uploaded successfully",
+        id,
+        payment_proof: s3Response,
+      });
+    } catch (error: any) {
+      logger.error(`Error during file upload: ${error.message}`);
+      res.status(500).json({
+        message: "File upload or queueing failed",
+        error: error.message,
+      });
+    }
+  }
+);
+
+export default ticketAdminRouter;

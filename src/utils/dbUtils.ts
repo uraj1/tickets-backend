@@ -190,13 +190,21 @@ export const verifyTicketPayment = async (ticketId: string) => {
 
     const filter = { _id: new ObjectId(ticketId) };
 
+    const ticket = await collection.findOne(filter);
+    if (!ticket) {
+      throw new Error(`Ticket with ID ${ticketId} not found`);
+    }
+
+    if (ticket.stage === "1" && !ticket.payment_proof) {
+      throw new Error("Payment proof is required to verify payment at stage 1");
+    }
+
     const updateDoc = { $set: { payment_verified: true } };
 
     const result = await collection.updateOne(filter, updateDoc);
 
-    if (result.matchedCount === 0) {
-      console.log(`Ticket with ID ${ticketId} not found`);
-      return null;
+    if (result.modifiedCount === 0) {
+      throw new Error("Payment verification update failed");
     }
 
     const updatedTicket = await collection.findOne(filter);
@@ -228,16 +236,51 @@ export const markTicketAsGiven = async (
     const result = await collection.updateOne(filter, updateDoc);
 
     if (result.matchedCount === 0) {
-      console.log(
-        `Ticket with ID ${ticketId} not found or payment is not verified`
-      );
-      return null;
+      throw `Ticket payment is not verified`;
     }
 
-    const updatedTicket = await collection.findOne({ _id: new ObjectId(ticketId) });
+    const updatedTicket = await collection.findOne({
+      _id: new ObjectId(ticketId),
+    });
     return updatedTicket;
   } catch (error) {
     console.error("Error marking ticket as given:", error);
+    throw error;
+  }
+};
+
+export const toggleEntryMarked = async (ticketId: string) => {
+  try {
+    const collection = getCollection();
+
+    // Find the current state of entry_marked
+    const ticket = await collection.findOne({ _id: new ObjectId(ticketId) });
+
+    if (!ticket) {
+      throw new Error(`Ticket with ID ${ticketId} not found`);
+    }
+
+    const newEntryMarkedValue = !ticket.entry_marked; // Toggle between true and false
+
+    const updateDoc = {
+      $set: { entry_marked: newEntryMarkedValue },
+    };
+
+    const result = await collection.updateOne(
+      { _id: new ObjectId(ticketId) },
+      updateDoc
+    );
+
+    if (result.matchedCount === 0) {
+      throw new Error(`Ticket with ID ${ticketId} not found`);
+    }
+
+    const updatedTicket = await collection.findOne({
+      _id: new ObjectId(ticketId),
+    });
+    return updatedTicket;
+  } catch (error) {
+    console.error("Error toggling entry_marked:", error);
     throw error;
   }
 };

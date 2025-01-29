@@ -82,8 +82,9 @@ ticketAdminRouter.post("/verify-payment/:ticketId", async (req: Request, res: an
 ticketAdminRouter.post("/mark-ticket-given/:ticketId", async (req: Request, res: any) => {
   try {
     const { ticketId } = req.params;
+    const { ticketNumber } = await req.body
     
-    const result = await markTicketAsGiven(ticketId);
+    const result = await markTicketAsGiven(ticketId, ticketNumber);
     
     if (!result) {
       return res.status(404).json({ message: "Ticket not found or ticket already marked as given" });

@@ -14,6 +14,7 @@ export default class Ticket {
     public createdAt: Date,
     public payment_verified: Bool,
     public ticket_given: Bool,
+    public ticket_number?: string,
     public payment_proof?: string,
     public sheetId?: string,
     public id?: ObjectId

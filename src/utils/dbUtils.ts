@@ -1,6 +1,15 @@
-import { connectToDatabase } from "../services/database.service";
+import { db } from "../services/database.service";
 import Ticket from "../models/tickets";
 import { ObjectId } from "mongodb";
+
+const getCollection = () => {
+  if (!db) {
+    throw new Error(
+      "Database not initialized. Ensure `connectToDatabase()` is called before using `db`."
+    );
+  }
+  return db.collection("tickets");
+};
 
 /**
  * Create a document in the `tickets` collection
@@ -9,8 +18,7 @@ import { ObjectId } from "mongodb";
  */
 export const createTicket = async (data: Ticket) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection();
     const result = await collection.insertOne(data);
     console.log("Ticket inserted with ID:", result.insertedId);
     return result.insertedId;
@@ -31,8 +39,7 @@ export const updateTicket = async (
   updateData: Record<string, any>
 ) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection();
     const filter = { _id: new ObjectId(id) };
     const updateDoc = { $set: updateData };
     const result = await collection.updateOne(filter, updateDoc);
@@ -53,8 +60,7 @@ export const updateTicket = async (
  */
 export const getTicketById = async (id: string) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection();
     const filter = { _id: new ObjectId(id) };
     const ticket = await collection.findOne(filter);
 
@@ -80,8 +86,7 @@ export const searchTickets = async (
   limit: number
 ) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection();
 
     // Calculate the number of documents to skip for pagination
     const skip = (page - 1) * limit;
@@ -125,7 +130,7 @@ export const searchTickets = async (
 
     // Get the results from the aggregation pipeline
     const result = await collection.aggregate(pipeline).toArray();
-    const total = result.length
+    const total = result.length;
 
     return {
       total,
@@ -152,8 +157,7 @@ export const getAllTickets = async (
   skip: number
 ) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection();
 
     const totalTickets = await collection.countDocuments();
     const tickets = await collection
@@ -182,13 +186,12 @@ export const getAllTickets = async (
  */
 export const verifyTicketPayment = async (ticketId: string) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection();
 
     const filter = { _id: new ObjectId(ticketId) };
 
     const updateDoc = { $set: { payment_verified: true } };
-    
+
     const result = await collection.updateOne(filter, updateDoc);
 
     if (result.matchedCount === 0) {
@@ -209,23 +212,29 @@ export const verifyTicketPayment = async (ticketId: string) => {
  * @param ticketId - The ID of the ticket to mark as given
  * @returns The updated ticket information
  */
-export const markTicketAsGiven = async (ticketId: string) => {
+export const markTicketAsGiven = async (
+  ticketId: string,
+  ticketNumber: string
+) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection();
 
-    const filter = { _id: new ObjectId(ticketId) };
+    const filter = { _id: new ObjectId(ticketId), payment_verified: true };
 
-    const updateDoc = { $set: { ticket_given: true } };
+    const updateDoc = {
+      $set: { ticket_given: true, ticket_number: ticketNumber },
+    };
 
     const result = await collection.updateOne(filter, updateDoc);
 
     if (result.matchedCount === 0) {
-      console.log(`Ticket with ID ${ticketId} not found`);
+      console.log(
+        `Ticket with ID ${ticketId} not found or payment is not verified`
+      );
       return null;
     }
 
-    const updatedTicket = await collection.findOne(filter);
+    const updatedTicket = await collection.findOne({ _id: new ObjectId(ticketId) });
     return updatedTicket;
   } catch (error) {
     console.error("Error marking ticket as given:", error);

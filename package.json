@@ -4,8 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "setup": "npm install",
+    "build": "tsc",
+    "build-watch": "tsc --watch",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "test-only": "mocha dist/test/",
+    "pretest": "npm run build",
+    "clean": "shx rm -rf node_modules/ dist/ docs/",
+    "typedoc": "typedoc --out ./docs --mode modules --tsconfig ./tsconfig.json ./dev/src/",
+    "posttypedoc": "shx cp .nojekyll docs/.nojekyll"
   },
   "keywords": [],
   "author": "",
@@ -13,9 +21,14 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/mocha": "^10.0.10",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.10.7",
+    "mocha": "^11.1.0",
+    "npm-run-all": "^4.1.5",
+    "shx": "^0.3.4",
     "ts-node-dev": "^2.0.0",
+    "typedoc": "^0.27.6",
     "typescript": "^5.7.3"
   },
   "dependencies": {

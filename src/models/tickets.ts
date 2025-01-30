@@ -1,4 +1,3 @@
-import { Bool } from "aws-sdk/clients/clouddirectory";
 import { ObjectId } from "mongodb";
 
 export default class Ticket {
@@ -12,13 +11,13 @@ export default class Ticket {
     public branch: string,
     public stage: string,
     public createdAt: Date,
-    public payment_verified: Bool,
-    public ticket_given: Bool,
+    public payment_verified: boolean,
+    public ticket_given: boolean,
     public ticket_number?: string,
     public payment_proof?: string,
-    public entry_marked?: Bool,
+    public entry_marked?: boolean,
     public sheetId?: string,
-    public email_sent?: Bool,
+    public email_sent?: boolean,
     public last_email_sent_at?: Date,
     public id?: ObjectId
   ) {}

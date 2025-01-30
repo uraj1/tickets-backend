@@ -97,7 +97,7 @@ export const searchTickets = async (
         $search: {
           text: {
             query: searchQuery,
-            path: ["stage", "name", "email", "rollNumber", "contactNumber"],
+            path: ["stage", "name", "email", "rollNumber", "contactNumber", "ticket_number"],
             fuzzy: {},
           },
         },

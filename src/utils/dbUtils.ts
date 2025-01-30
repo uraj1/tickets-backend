@@ -1,5 +1,6 @@
 import { db } from "../services/database.service";
 import Ticket from "../models/tickets";
+import EmailTemplates from "../models/emailTemplates";
 import { ObjectId } from "mongodb";
 
 const getCollection = (collectionName: "tickets" | "email_templates") => {
@@ -18,7 +19,7 @@ const getCollection = (collectionName: "tickets" | "email_templates") => {
  */
 export const createTicket = async (data: Ticket) => {
   try {
-    const collection = getCollection('tickets');
+    const collection = getCollection("tickets");
     const result = await collection.insertOne(data);
     console.log("Ticket inserted with ID:", result.insertedId);
     return result.insertedId;
@@ -39,7 +40,7 @@ export const updateTicket = async (
   updateData: Record<string, any>
 ) => {
   try {
-    const collection = getCollection('tickets');
+    const collection = getCollection("tickets");
     const filter = { _id: new ObjectId(id) };
     const updateDoc = { $set: updateData };
     const result = await collection.updateOne(filter, updateDoc);
@@ -60,7 +61,7 @@ export const updateTicket = async (
  */
 export const getTicketById = async (id: string) => {
   try {
-    const collection = getCollection('tickets');
+    const collection = getCollection("tickets");
     const filter = { _id: new ObjectId(id) };
     const ticket = await collection.findOne(filter);
 
@@ -86,7 +87,7 @@ export const searchTickets = async (
   limit: number
 ) => {
   try {
-    const collection = getCollection('tickets');
+    const collection = getCollection("tickets");
 
     // Calculate the number of documents to skip for pagination
     const skip = (page - 1) * limit;
@@ -97,7 +98,14 @@ export const searchTickets = async (
         $search: {
           text: {
             query: searchQuery,
-            path: ["stage", "name", "email", "rollNumber", "contactNumber", "ticket_number"],
+            path: [
+              "stage",
+              "name",
+              "email",
+              "rollNumber",
+              "contactNumber",
+              "ticket_number",
+            ],
             fuzzy: {},
           },
         },
@@ -157,7 +165,7 @@ export const getAllTickets = async (
   skip: number
 ) => {
   try {
-    const collection = getCollection('tickets');
+    const collection = getCollection("tickets");
 
     const totalTickets = await collection.countDocuments();
     const tickets = await collection
@@ -186,7 +194,7 @@ export const getAllTickets = async (
  */
 export const verifyTicketPayment = async (ticketId: string) => {
   try {
-    const collection = getCollection('tickets');
+    const collection = getCollection("tickets");
 
     const filter = { _id: new ObjectId(ticketId) };
 
@@ -225,7 +233,7 @@ export const markTicketAsGiven = async (
   ticketNumber: string
 ) => {
   try {
-    const collection = getCollection('tickets');
+    const collection = getCollection("tickets");
 
     const filter = { _id: new ObjectId(ticketId), payment_verified: true };
 
@@ -251,7 +259,7 @@ export const markTicketAsGiven = async (
 
 export const toggleEntryMarked = async (ticketId: string) => {
   try {
-    const collection = getCollection('tickets');
+    const collection = getCollection("tickets");
 
     // Find the current state of entry_marked
     const ticket = await collection.findOne({ _id: new ObjectId(ticketId) });
@@ -281,6 +289,141 @@ export const toggleEntryMarked = async (ticketId: string) => {
     return updatedTicket;
   } catch (error) {
     console.error("Error toggling entry_marked:", error);
+    throw error;
+  }
+};
+
+export const getFilteredTickets = async (filter: Record<string, any> = {}) => {
+  try {
+    const collection = getCollection("tickets");
+
+    const tickets = await collection
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return {
+      total: tickets.length,
+      tickets,
+    };
+  } catch (error) {
+    console.error("Error fetching filtered tickets:", error);
+    throw error;
+  }
+};
+
+export const getAllEmailTemplates = async () => {
+  try {
+    const collection = getCollection("email_templates");
+
+    const templates = await collection.find({}).toArray();
+
+    return {
+      total: templates.length,
+      templates,
+    };
+  } catch (error) {
+    console.error("Error fetching email templates:", error);
+    throw error;
+  }
+};
+
+export const getTicketsMarkedAsGiven = async (templateId: string) => {
+  try {
+    const collection = getCollection("tickets");
+
+    const tickets = await collection
+      .find({
+        ticket_given: true,
+        templatesSent: {
+          $not: {
+            $elemMatch: { templateId: new ObjectId(templateId) },
+          },
+        },
+      })
+      .toArray();
+
+    return tickets;
+  } catch (error) {
+    console.error("Error fetching tickets marked as given:", error);
+    throw error;
+  }
+};
+
+export const getEmailTemplateById = async (templateId: string) => {
+  try {
+    if (!ObjectId.isValid(templateId)) {
+      throw new Error(`Invalid template ID: ${templateId}`);
+    }
+
+    const collection = getCollection("email_templates");
+
+    const template = await collection.findOne({
+      _id: new ObjectId(templateId),
+    });
+
+    if (!template) {
+      throw new Error(`Email template with ID ${templateId} not found.`);
+    }
+
+    return new EmailTemplates(
+      template.templateName,
+      template.subject,
+      template.body,
+      template.thumbnail,
+      template._id
+    );
+  } catch (error) {
+    console.error(
+      `Error fetching email template with ID ${templateId}:`,
+      error
+    );
+    throw error;
+  }
+};
+
+export const updateEmailSentStatus = async (
+  ticketId: string,
+  templateId: string
+) => {
+  try {
+    const collection = getCollection("tickets");
+
+    const ticket = await collection.findOne({ _id: new ObjectId(ticketId) });
+
+    if (!ticket) {
+      throw new Error(`Ticket with ID ${ticketId} not found.`);
+    }
+
+    const updatedTemplatesSent = Array.isArray(ticket.templatesSent)
+      ? [...ticket.templatesSent]
+      : [];
+
+    updatedTemplatesSent.push({
+      templateId: new ObjectId(templateId),
+      sentAt: new Date(),
+    });
+
+    const result = await collection.updateOne(
+      { _id: new ObjectId(ticketId) },
+      {
+        $set: {
+          last_email_sent_at: new Date(),
+          templatesSent: updatedTemplatesSent,
+        },
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      throw new Error(`Ticket with ID ${ticketId} was not updated.`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error(
+      `Error updating email sent status for ticket ${ticketId}:`,
+      error
+    );
     throw error;
   }
 };

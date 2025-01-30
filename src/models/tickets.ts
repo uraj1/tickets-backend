@@ -1,5 +1,10 @@
 import { ObjectId } from "mongodb";
 
+export interface TemplateSent {
+  templateId: ObjectId;
+  sentAt: Date;
+}
+
 export default class Ticket {
   constructor(
     public name: string,
@@ -17,7 +22,7 @@ export default class Ticket {
     public payment_proof?: string,
     public entry_marked?: boolean,
     public sheetId?: string,
-    public email_sent?: boolean,
+    public templatesSent?: TemplateSent[],
     public last_email_sent_at?: Date,
     public id?: ObjectId
   ) {}

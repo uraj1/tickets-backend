@@ -59,7 +59,6 @@ desktop.ini
 # Local environment files
 .envrc
 .env.bak
-.env.example
 
 # Yarn and package-lock files for cross-package managers
 .pnp

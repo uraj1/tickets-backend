@@ -2,13 +2,13 @@ import { db } from "../services/database.service";
 import Ticket from "../models/tickets";
 import { ObjectId } from "mongodb";
 
-const getCollection = () => {
+const getCollection = (collectionName: "tickets" | "email_templates") => {
   if (!db) {
     throw new Error(
       "Database not initialized. Ensure `connectToDatabase()` is called before using `db`."
     );
   }
-  return db.collection("tickets");
+  return db.collection(collectionName);
 };
 
 /**
@@ -18,7 +18,7 @@ const getCollection = () => {
  */
 export const createTicket = async (data: Ticket) => {
   try {
-    const collection = getCollection();
+    const collection = getCollection('tickets');
     const result = await collection.insertOne(data);
     console.log("Ticket inserted with ID:", result.insertedId);
     return result.insertedId;
@@ -39,7 +39,7 @@ export const updateTicket = async (
   updateData: Record<string, any>
 ) => {
   try {
-    const collection = getCollection();
+    const collection = getCollection('tickets');
     const filter = { _id: new ObjectId(id) };
     const updateDoc = { $set: updateData };
     const result = await collection.updateOne(filter, updateDoc);
@@ -60,7 +60,7 @@ export const updateTicket = async (
  */
 export const getTicketById = async (id: string) => {
   try {
-    const collection = getCollection();
+    const collection = getCollection('tickets');
     const filter = { _id: new ObjectId(id) };
     const ticket = await collection.findOne(filter);
 
@@ -86,7 +86,7 @@ export const searchTickets = async (
   limit: number
 ) => {
   try {
-    const collection = getCollection();
+    const collection = getCollection('tickets');
 
     // Calculate the number of documents to skip for pagination
     const skip = (page - 1) * limit;
@@ -157,7 +157,7 @@ export const getAllTickets = async (
   skip: number
 ) => {
   try {
-    const collection = getCollection();
+    const collection = getCollection('tickets');
 
     const totalTickets = await collection.countDocuments();
     const tickets = await collection
@@ -186,7 +186,7 @@ export const getAllTickets = async (
  */
 export const verifyTicketPayment = async (ticketId: string) => {
   try {
-    const collection = getCollection();
+    const collection = getCollection('tickets');
 
     const filter = { _id: new ObjectId(ticketId) };
 
@@ -225,7 +225,7 @@ export const markTicketAsGiven = async (
   ticketNumber: string
 ) => {
   try {
-    const collection = getCollection();
+    const collection = getCollection('tickets');
 
     const filter = { _id: new ObjectId(ticketId), payment_verified: true };
 
@@ -251,7 +251,7 @@ export const markTicketAsGiven = async (
 
 export const toggleEntryMarked = async (ticketId: string) => {
   try {
-    const collection = getCollection();
+    const collection = getCollection('tickets');
 
     // Find the current state of entry_marked
     const ticket = await collection.findOne({ _id: new ObjectId(ticketId) });

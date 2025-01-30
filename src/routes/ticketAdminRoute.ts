@@ -6,10 +6,14 @@ import {
   markTicketAsGiven,
   updateTicket,
   toggleEntryMarked,
+  getAllEmailTemplates,
+  getTicketsMarkedAsGiven,
+  getEmailTemplateById,
 } from "../utils/dbUtils"; // Assuming these functions are defined in your dbUtils
 import multer from "multer";
 import { uploadToS3 } from "../services/s3.service";
 import { logger } from "../services/logger.service";
+import { emailQueue } from "../services/bullmq.service";
 
 const ticketAdminRouter = express.Router();
 
@@ -231,5 +235,70 @@ ticketAdminRouter.post(
     }
   }
 );
+
+ticketAdminRouter.get("/email-templates", async (req: Request, res: Response) => {
+  try {
+    const result = await getAllEmailTemplates();
+
+    const templates = result.templates.map(template => ({
+      id: template._id.toString(),
+      name: template.templateName,
+      subject: template.subject,
+      body: template.body
+    }));
+
+    res.status(200).json({ total: result.total, templates });
+  } catch (error) {
+    console.error("Error fetching email templates:", error);
+    res.status(500).json({ message: "Error fetching email templates", error });
+  }
+});
+
+/**
+ * Route to send bulk emails to tickets marked as given using the email template.
+ * @route POST /admin/send-bulk-emails
+ * @param {string} templateId - The ID of the email template to be used.
+ * @returns {Object} Success or error message
+ */
+ticketAdminRouter.post("/send-bulk-emails", async (req: Request, res: any) => {
+  try {
+    const { templateId } = req.body;
+
+    if (!templateId) {
+      return res.status(400).json({
+        message: "Template ID is required to send bulk emails.",
+      });
+    }
+
+    // Fetch the email template by ID
+    const template = await getEmailTemplateById(templateId);
+
+    if (!template) {
+      return res.status(404).json({
+        message: `Email template with ID ${templateId} not found.`,
+      });
+    }
+
+    const { subject, body } = template;
+
+    await emailQueue.add("bulk-email", {
+      subject,
+      body,
+      templateId,
+    });
+
+    logger.info(`Bulk email job added using template ${templateId}.`);
+
+    res.status(200).json({
+      message: `Bulk emails job added successfully using template ${templateId}.`,
+    });
+  } catch (error) {
+    logger.error(`Error sending bulk emails: ${error}`);
+    res.status(500).json({
+      message: "Error processing bulk emails",
+      error: error,
+    });
+  }
+});
 
 export default ticketAdminRouter;

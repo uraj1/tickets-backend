@@ -59,7 +59,6 @@ desktop.ini
 # Local environment files
 .envrc
 .env.bak
-.env.example
 
 # Yarn and package-lock files for cross-package managers
 .pnp
@@ -87,3 +86,4 @@ docker-compose.override.yml
 # Custom files
 fair-smoke-448809-s8-c3f78b08f95e.json
 job-logs.txt
+sheet.json

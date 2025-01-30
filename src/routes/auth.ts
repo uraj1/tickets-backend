@@ -1,13 +1,10 @@
 import express from "express";
-import { Request, Response, NextFunction } from "express";
+import { Request, NextFunction } from "express";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-import { connectToDatabase } from "../services/database.service";
 import Admins from "../models/admins";
-import { adminsSchema } from "../utils/validationSchemas";
-import { logger } from "../services/logger.service";
-import { ObjectId } from "mongodb";
+import { findAdminByEmail, findAdminById } from "../utils/dbUtils";
 
 export const authRouter = express.Router();
 
@@ -17,8 +14,7 @@ passport.use(
     { usernameField: "email", passwordField: "password" },
     async (email, password, done) => {
       try {
-        const db = await connectToDatabase();
-        const user = await db.collection("admins").findOne({ email }, { projection: { hashedPassword: 1, email: 1 } });
+        const user = await findAdminByEmail(email);
 
         if (!user) {
           return done(null, false, { message: "Incorrect email or password." });
@@ -50,8 +46,7 @@ passport.serializeUser((user: any, done) => {
 // Deserialize user from session
 passport.deserializeUser(async (id: string, done) => {
   try {
-    const db = await connectToDatabase();
-    const user = await db.collection("admins").findOne({ _id: new ObjectId(id) });
+    const user = await findAdminById(id);
     done(null, user);
   } catch (error) {
     done(error);

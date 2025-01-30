@@ -3,7 +3,7 @@ import * as mongoDB from "mongodb";
 import * as dotenv from "dotenv";
 
 // Global Vairables
-export const collections: { tickets?: mongoDB.Collection } = {};
+export const collections: { tickets?: mongoDB.Collection, admins?: mongoDB.Collection } = {};
 
 // Initialize Connection
 export async function connectToDatabase() {
@@ -21,9 +21,14 @@ export async function connectToDatabase() {
     process.env.TICKET_COLLECTION_NAME as string
   );
 
+  const adminCollection: mongoDB.Collection = db.collection(
+    process.env.ADMIN_COLLECTION_NAME as string
+  )
+
   collections.tickets = ticketCollection;
+  collections.admins = adminCollection;
   console.log(
-    `Successfully connected to database: ${db.databaseName} and collection: ${ticketCollection.collectionName}`
+    `Successfully connected to database: ${db.databaseName} and collection: ${ticketCollection.collectionName}, ${adminCollection.collectionName}`
   );
   return db;
 }

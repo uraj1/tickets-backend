@@ -1,7 +1,9 @@
 import express, { Request, Response } from "express";
 import { getAllTickets, searchTickets, verifyTicketPayment, markTicketAsGiven } from "../utils/dbUtils"; // Assuming these functions are defined in your dbUtils
+import { ensureAuthenticated } from "../middleware/isAuthenticated";
 
 const ticketAdminRouter = express.Router();
+ticketAdminRouter.use(ensureAuthenticated);
 
 /**
  * Route to fetch paginated and optionally searched tickets

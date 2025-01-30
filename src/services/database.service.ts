@@ -1,34 +1,40 @@
-// External Dependencies
 import * as mongoDB from "mongodb";
 import * as dotenv from "dotenv";
 
-// Global Vairables
-export const collections: { tickets?: mongoDB.Collection, admins?: mongoDB.Collection } = {};
+dotenv.config();
 
-// Initialize Connection
-export async function connectToDatabase() {
-  dotenv.config();
+let db: mongoDB.Db | null = null;
+let client: mongoDB.MongoClient | null = null;
 
-  const client: mongoDB.MongoClient = new mongoDB.MongoClient(
-    process.env.MONGO_URI as string
-  );
+export async function connectToDatabase(): Promise<mongoDB.Db> {
+  if (db) {
+    console.log("Using existing database connection");
+    return db;
+  }
 
-  await client.connect();
+  try {
+    client = new mongoDB.MongoClient(process.env.MONGO_URI as string, {
+      maxPoolSize: 10,
+      minPoolSize: 5,
+    });
 
-  const db: mongoDB.Db = client.db(process.env.DB_NAME);
+    await client.connect();
+    db = client.db(process.env.DB_NAME);
+    console.log(`Connected to database: ${db.databaseName}`);
 
-  const ticketCollection: mongoDB.Collection = db.collection(
-    process.env.TICKET_COLLECTION_NAME as string
-  );
-
-  const adminCollection: mongoDB.Collection = db.collection(
-    process.env.ADMIN_COLLECTION_NAME as string
-  )
-
-  collections.tickets = ticketCollection;
-  collections.admins = adminCollection;
-  console.log(
-    `Successfully connected to database: ${db.databaseName} and collection: ${ticketCollection.collectionName}, ${adminCollection.collectionName}`
-  );
-  return db;
+    return db;
+  } catch (error) {
+    console.error("Database connection error:", error);
+    throw error;
+  }
 }
+
+// Function to close the connection gracefully
+export async function closeDatabaseConnection() {
+  if (client) {
+    await client.close();
+    console.log("Database connection closed");
+  }
+}
+
+export { db };

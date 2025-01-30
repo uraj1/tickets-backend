@@ -1,6 +1,16 @@
-import { connectToDatabase } from "../services/database.service";
+import { db } from "../services/database.service";
 import Ticket from "../models/tickets";
+import EmailTemplates from "../models/emailTemplates";
 import { ObjectId } from "mongodb";
+
+const getCollection = (collectionName: "tickets" | "email_templates") => {
+  if (!db) {
+    throw new Error(
+      "Database not initialized. Ensure `connectToDatabase()` is called before using `db`."
+    );
+  }
+  return db.collection(collectionName);
+};
 
 /**
  * Create a document in the `tickets` collection
@@ -9,8 +19,7 @@ import { ObjectId } from "mongodb";
  */
 export const createTicket = async (data: Ticket) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection("tickets");
     const result = await collection.insertOne(data);
     console.log("Ticket inserted with ID:", result.insertedId);
     return result.insertedId;
@@ -31,8 +40,7 @@ export const updateTicket = async (
   updateData: Record<string, any>
 ) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection("tickets");
     const filter = { _id: new ObjectId(id) };
     const updateDoc = { $set: updateData };
     const result = await collection.updateOne(filter, updateDoc);
@@ -53,8 +61,7 @@ export const updateTicket = async (
  */
 export const getTicketById = async (id: string) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection("tickets");
     const filter = { _id: new ObjectId(id) };
     const ticket = await collection.findOne(filter);
 
@@ -80,8 +87,7 @@ export const searchTickets = async (
   limit: number
 ) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection("tickets");
 
     // Calculate the number of documents to skip for pagination
     const skip = (page - 1) * limit;
@@ -92,7 +98,14 @@ export const searchTickets = async (
         $search: {
           text: {
             query: searchQuery,
-            path: ["stage", "name", "email", "rollNumber", "contactNumber"],
+            path: [
+              "stage",
+              "name",
+              "email",
+              "rollNumber",
+              "contactNumber",
+              "ticket_number",
+            ],
             fuzzy: {},
           },
         },
@@ -125,7 +138,7 @@ export const searchTickets = async (
 
     // Get the results from the aggregation pipeline
     const result = await collection.aggregate(pipeline).toArray();
-    const total = result.length
+    const total = result.length;
 
     return {
       total,
@@ -152,8 +165,7 @@ export const getAllTickets = async (
   skip: number
 ) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection("tickets");
 
     const totalTickets = await collection.countDocuments();
     const tickets = await collection
@@ -182,18 +194,25 @@ export const getAllTickets = async (
  */
 export const verifyTicketPayment = async (ticketId: string) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection("tickets");
 
     const filter = { _id: new ObjectId(ticketId) };
 
+    const ticket = await collection.findOne(filter);
+    if (!ticket) {
+      throw new Error(`Ticket with ID ${ticketId} not found`);
+    }
+
+    if (ticket.stage === "1" && !ticket.payment_proof) {
+      throw new Error("Payment proof is required to verify payment at stage 1");
+    }
+
     const updateDoc = { $set: { payment_verified: true } };
-    
+
     const result = await collection.updateOne(filter, updateDoc);
 
-    if (result.matchedCount === 0) {
-      console.log(`Ticket with ID ${ticketId} not found`);
-      return null;
+    if (result.modifiedCount === 0) {
+      throw new Error("Payment verification update failed");
     }
 
     const updatedTicket = await collection.findOne(filter);
@@ -209,26 +228,202 @@ export const verifyTicketPayment = async (ticketId: string) => {
  * @param ticketId - The ID of the ticket to mark as given
  * @returns The updated ticket information
  */
-export const markTicketAsGiven = async (ticketId: string) => {
+export const markTicketAsGiven = async (
+  ticketId: string,
+  ticketNumber: string
+) => {
   try {
-    const db = await connectToDatabase();
-    const collection = db.collection("tickets");
+    const collection = getCollection("tickets");
 
-    const filter = { _id: new ObjectId(ticketId) };
+    const filter = { _id: new ObjectId(ticketId), payment_verified: true };
 
-    const updateDoc = { $set: { ticket_given: true } };
+    const updateDoc = {
+      $set: { ticket_given: true, ticket_number: ticketNumber },
+    };
 
     const result = await collection.updateOne(filter, updateDoc);
 
     if (result.matchedCount === 0) {
-      console.log(`Ticket with ID ${ticketId} not found`);
-      return null;
+      throw `Ticket payment is not verified`;
     }
 
-    const updatedTicket = await collection.findOne(filter);
+    const updatedTicket = await collection.findOne({
+      _id: new ObjectId(ticketId),
+    });
     return updatedTicket;
   } catch (error) {
     console.error("Error marking ticket as given:", error);
+    throw error;
+  }
+};
+
+export const toggleEntryMarked = async (ticketId: string) => {
+  try {
+    const collection = getCollection("tickets");
+
+    // Find the current state of entry_marked
+    const ticket = await collection.findOne({ _id: new ObjectId(ticketId) });
+
+    if (!ticket) {
+      throw new Error(`Ticket with ID ${ticketId} not found`);
+    }
+
+    const newEntryMarkedValue = !ticket.entry_marked; // Toggle between true and false
+
+    const updateDoc = {
+      $set: { entry_marked: newEntryMarkedValue },
+    };
+
+    const result = await collection.updateOne(
+      { _id: new ObjectId(ticketId) },
+      updateDoc
+    );
+
+    if (result.matchedCount === 0) {
+      throw new Error(`Ticket with ID ${ticketId} not found`);
+    }
+
+    const updatedTicket = await collection.findOne({
+      _id: new ObjectId(ticketId),
+    });
+    return updatedTicket;
+  } catch (error) {
+    console.error("Error toggling entry_marked:", error);
+    throw error;
+  }
+};
+
+export const getFilteredTickets = async (filter: Record<string, any> = {}) => {
+  try {
+    const collection = getCollection("tickets");
+
+    const tickets = await collection
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return {
+      total: tickets.length,
+      tickets,
+    };
+  } catch (error) {
+    console.error("Error fetching filtered tickets:", error);
+    throw error;
+  }
+};
+
+export const getAllEmailTemplates = async () => {
+  try {
+    const collection = getCollection("email_templates");
+
+    const templates = await collection.find({}).toArray();
+
+    return {
+      total: templates.length,
+      templates,
+    };
+  } catch (error) {
+    console.error("Error fetching email templates:", error);
+    throw error;
+  }
+};
+
+export const getTicketsMarkedAsGiven = async (templateId: string) => {
+  try {
+    const collection = getCollection("tickets");
+
+    const tickets = await collection
+      .find({
+        ticket_given: true,
+        templatesSent: {
+          $not: {
+            $elemMatch: { templateId: new ObjectId(templateId) },
+          },
+        },
+      })
+      .toArray();
+
+    return tickets;
+  } catch (error) {
+    console.error("Error fetching tickets marked as given:", error);
+    throw error;
+  }
+};
+
+export const getEmailTemplateById = async (templateId: string) => {
+  try {
+    if (!ObjectId.isValid(templateId)) {
+      throw new Error(`Invalid template ID: ${templateId}`);
+    }
+
+    const collection = getCollection("email_templates");
+
+    const template = await collection.findOne({
+      _id: new ObjectId(templateId),
+    });
+
+    if (!template) {
+      throw new Error(`Email template with ID ${templateId} not found.`);
+    }
+
+    return new EmailTemplates(
+      template.templateName,
+      template.subject,
+      template.body,
+      template.thumbnail,
+      template._id
+    );
+  } catch (error) {
+    console.error(
+      `Error fetching email template with ID ${templateId}:`,
+      error
+    );
+    throw error;
+  }
+};
+
+export const updateEmailSentStatus = async (
+  ticketId: string,
+  templateId: string
+) => {
+  try {
+    const collection = getCollection("tickets");
+
+    const ticket = await collection.findOne({ _id: new ObjectId(ticketId) });
+
+    if (!ticket) {
+      throw new Error(`Ticket with ID ${ticketId} not found.`);
+    }
+
+    const updatedTemplatesSent = Array.isArray(ticket.templatesSent)
+      ? [...ticket.templatesSent]
+      : [];
+
+    updatedTemplatesSent.push({
+      templateId: new ObjectId(templateId),
+      sentAt: new Date(),
+    });
+
+    const result = await collection.updateOne(
+      { _id: new ObjectId(ticketId) },
+      {
+        $set: {
+          last_email_sent_at: new Date(),
+          templatesSent: updatedTemplatesSent,
+        },
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      throw new Error(`Ticket with ID ${ticketId} was not updated.`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error(
+      `Error updating email sent status for ticket ${ticketId}:`,
+      error
+    );
     throw error;
   }
 };

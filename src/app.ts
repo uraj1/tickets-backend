@@ -17,6 +17,7 @@ const corsOptions = {
   optionSuccessStatus: 200,
 };
 app.use(CORS(corsOptions));
+app.use(limiter);
 app.get("/", (_, res) => {
   res.status(200).json({ message: "Server is healthy" });
 });

@@ -96,33 +96,33 @@ authRouter.post("/logout", (req: Request, res: any) => {
   }
 });
 
-authRouter.post("/register", async (req: Request, res: any) => {
-  try {
-    const db = await connectToDatabase();
-    const adminsCollection = db.collection("admins");
+// authRouter.post("/register", async (req: Request, res: any) => {
+//   try {
+//     const db = await connectToDatabase();
+//     const adminsCollection = db.collection("admins");
 
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
-    }
+//     const { email, password } = req.body;
+//     if (!email || !password) {
+//       return res.status(400).json({ message: "Email and password are required" });
+//     }
 
-    const existingAdmin = await adminsCollection.findOne({ email });
-    if (existingAdmin) {
-      return res.status(400).json({ message: "Admin already exists" });
-    }
+//     const existingAdmin = await adminsCollection.findOne({ email });
+//     if (existingAdmin) {
+//       return res.status(400).json({ message: "Admin already exists" });
+//     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+//     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const validatedAdmin = adminsSchema.parse({ email, hashedPassword });
-    const newAdmin = new Admins(validatedAdmin.email, validatedAdmin.hashedPassword);
-    const result = await adminsCollection.insertOne(newAdmin);
+//     const validatedAdmin = adminsSchema.parse({ email, hashedPassword });
+//     const newAdmin = new Admins(validatedAdmin.email, validatedAdmin.hashedPassword);
+//     const result = await adminsCollection.insertOne(newAdmin);
     
-    logger.info(`Admin created successfully with ID: ${result.insertedId}`);
-    res.status(201).json({ message: "Admin created successfully", adminId: result.insertedId });
-  } catch (error) {
-    console.error("Error in admin register:", error);
-    res.status(500).json({ message: "Error in admin register", error });
-  }
-})
+//     logger.info(`Admin created successfully with ID: ${result.insertedId}`);
+//     res.status(201).json({ message: "Admin created successfully", adminId: result.insertedId });
+//   } catch (error) {
+//     console.error("Error in admin register:", error);
+//     res.status(500).json({ message: "Error in admin register", error });
+//   }
+// })
 
 export default authRouter;

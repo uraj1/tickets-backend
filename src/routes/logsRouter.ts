@@ -19,7 +19,7 @@ logsRouter.get("/", async (req: Request, res: Response) => {
       const logEntries = lines.map((line, index) => {
         const parts = line.split(" ");
         const timestamp = parts[0] + " " + parts[1];
-        const level = parts[2];
+        const level = parts[1];
         const message = parts.slice(3).join(" ");
 
         const date = new Date(timestamp);

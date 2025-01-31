@@ -13,3 +13,9 @@ export const formDetails = z.object({
   branch: z.string(),
   branchOther: z.string().optional(),
 });
+
+
+export const adminsSchema = z.object({
+  email: z.string().email(),
+  hashedPassword: z.string(),
+})

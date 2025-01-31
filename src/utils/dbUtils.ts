@@ -3,7 +3,7 @@ import Ticket from "../models/tickets";
 import EmailTemplates from "../models/emailTemplates";
 import { ObjectId } from "mongodb";
 
-const getCollection = (collectionName: "tickets" | "email_templates") => {
+const getCollection = (collectionName: "tickets" | "email_templates" | "admins") => {
   if (!db) {
     throw new Error(
       "Database not initialized. Ensure `connectToDatabase()` is called before using `db`."
@@ -427,3 +427,28 @@ export const updateEmailSentStatus = async (
     throw error;
   }
 };
+
+
+export const findAdminByEmail = async (email: string) => {
+  try {
+    const collection = getCollection("admins");
+
+    const admin = await collection.findOne({ email }, { projection: { hashedPassword: 1, email: 1 } });
+    return admin;
+  } catch (error) {
+    console.error("Error finding admin by email:", error);
+    throw error;
+  }
+}
+
+export const findAdminById = async (id: string) => {
+  try {
+    const collection = getCollection("admins");
+
+    const admin = await collection.findOne({ _id: new ObjectId(id) });
+    return admin;
+  } catch (error) {
+    console.error("Error finding admin by ID:", error);
+    throw error;
+  }
+}

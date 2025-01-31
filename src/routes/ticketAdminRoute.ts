@@ -10,12 +10,14 @@ import {
   getTicketsMarkedAsGiven,
   getEmailTemplateById,
 } from "../utils/dbUtils"; // Assuming these functions are defined in your dbUtils
+import { ensureAuthenticated } from "../middleware/isAuthenticated";
 import multer from "multer";
 import { uploadToS3 } from "../services/s3.service";
 import { logger } from "../services/logger.service";
 import { emailQueue } from "../services/bullmq.service";
 
 const ticketAdminRouter = express.Router();
+ticketAdminRouter.use(ensureAuthenticated);
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = [

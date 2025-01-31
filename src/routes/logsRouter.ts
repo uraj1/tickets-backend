@@ -14,12 +14,12 @@ logsRouter.get("/", async (req: Request, res: Response) => {
         return res.status(500).json({ message: "Error reading logs" });
       }
 
-      const lines = data.split("\n");
+      const lines = data.split("\n").filter(line => line.trim() !== "");
 
       const logEntries = lines.map((line, index) => {
         const parts = line.split(" ");
         const timestamp = parts[0] + " " + parts[1];
-        const level = parts[1];
+        const level = parts[2];
         const message = parts.slice(3).join(" ");
 
         const date = new Date(timestamp);
@@ -38,14 +38,16 @@ logsRouter.get("/", async (req: Request, res: Response) => {
         };
       });
 
+      const reversedLogEntries = logEntries.reverse();
+
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
 
-      const paginatedLogs = logEntries.slice(startIndex, endIndex);
+      const paginatedLogs = reversedLogEntries.slice(startIndex, endIndex);
 
-      const totalLogs = logEntries.length;
+      const totalLogs = reversedLogEntries.length;
       const totalPages = Math.ceil(totalLogs / limit);
 
       res.status(200).json({

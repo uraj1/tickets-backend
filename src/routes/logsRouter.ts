@@ -1,10 +1,10 @@
-import express, { Request, Response } from "express";
+import express, { Response, Request } from "express";
 import fs from "fs";
 import path from "path";
 
 const logsRouter = express.Router();
 
-logsRouter.get("/", async (_, res: Response) => {
+logsRouter.get("/", async (req: Request, res: Response) => {
   try {
     const logFilePath = path.join("./", "job-logs.txt");
 
@@ -14,7 +14,9 @@ logsRouter.get("/", async (_, res: Response) => {
         return res.status(500).json({ message: "Error reading logs" });
       }
 
-      const logEntries = data.split("\n").map((line, index) => {
+      const lines = data.split("\n").filter(line => line.trim() !== "");
+
+      const logEntries = lines.map((line, index) => {
         const parts = line.split(" ");
         const timestamp = parts[0] + " " + parts[1];
         const level = parts[1];
@@ -31,12 +33,29 @@ logsRouter.get("/", async (_, res: Response) => {
         return {
           _id: index.toString(),
           timestamp: isoTimestamp,
-          level: level?.split(':')[0],
+          level: level?.split(":")[0],
           message: message,
         };
       });
 
-      res.status(200).json({ logs: logEntries });
+      const reversedLogEntries = logEntries.reverse();
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+
+      const paginatedLogs = reversedLogEntries.slice(startIndex, endIndex);
+
+      const totalLogs = reversedLogEntries.length;
+      const totalPages = Math.ceil(totalLogs / limit);
+
+      res.status(200).json({
+        totalLogs,
+        totalPages,
+        currentPage: page,
+        logs: paginatedLogs,
+      });
     });
   } catch (err: any) {
     console.error("Unexpected error:", err.message);

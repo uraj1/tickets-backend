@@ -1,12 +1,12 @@
 import session from 'express-session';
 
 export const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET as string, 
-  resave: false, 
-  saveUninitialized: false, 
+  secret: process.env.SESSION_SECRET as string,
   cookie: {
-    maxAge: 1000 * 60 * 60 * 24, 
+    secure: false,
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    secure: false, 
-  }
-})
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  },
+  resave: false,
+  saveUninitialized: false,
+});

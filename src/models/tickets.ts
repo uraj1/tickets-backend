@@ -8,7 +8,7 @@ export interface TemplateSent {
 export default class Ticket {
   constructor(
     public name: string,
-    public email: String,
+    public email: string,
     public rollNumber: string,
     public contactNumber: string,
     public degree: string,

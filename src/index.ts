@@ -1,7 +1,7 @@
 import app from './app'
 import { runAnalyticsScheduler } from './cron/analytics';
 import { connectToDatabase } from './services/database.service';
-import cron from "node-cron";
+import { CronJob } from 'cron';
 
 const PORT = 8080
 
@@ -9,10 +9,15 @@ async function main() {
   try {
     await connectToDatabase();
     
-    cron.schedule("*/10 * * * *", () => {
-      console.log("Running scheduled analytics update...");
-      runAnalyticsScheduler();
-    });
+    const job = new CronJob(
+      '*/10 * * * *',
+      function () {
+        runAnalyticsScheduler();
+      },
+      null,
+      true,
+      'America/Los_Angeles'
+    );
     
     const httpServer = app.listen(PORT, () => {
       console.log(`Server listening on PORT ${PORT}`)

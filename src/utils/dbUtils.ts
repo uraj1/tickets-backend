@@ -3,7 +3,7 @@ import Ticket from "../models/tickets";
 import EmailTemplates from "../models/emailTemplates";
 import { ObjectId } from "mongodb";
 
-const getCollection = (collectionName: "tickets" | "email_templates" | "admins") => {
+const getCollection = (collectionName: "tickets" | "email_templates" | "admins" | "analytics" | "offers") => {
   if (!db) {
     throw new Error(
       "Database not initialized. Ensure `connectToDatabase()` is called before using `db`."
@@ -485,3 +485,47 @@ const getTicketAnalytics = async () => {
 
   return result[0] || {};
 };
+
+export const saveAnalytics = async () => {
+  const analyticsData = await getTicketAnalytics();
+  if (!analyticsData || Object.keys(analyticsData).length === 0) {
+    console.log("No data to insert.");
+    return;
+  }
+
+  const analyticsCollection = getCollection("analytics");
+  await analyticsCollection.insertOne(analyticsData);
+  console.log("Analytics data inserted:", analyticsData);
+};
+
+export const getLatestAnalytics = async () => {
+  try {
+    const analyticsCollection = getCollection("analytics");
+    const latestAnalytics = await analyticsCollection
+      .find()
+      .sort({ _id: -1 })
+      .limit(1)
+      .toArray();
+
+    if (latestAnalytics.length > 0) {
+      console.log("Latest analytics data:", latestAnalytics[0]);
+      return latestAnalytics[0];
+    } else {
+      console.log("No analytics data found.");
+      return null;
+    }
+  } catch (error) {
+    console.error("Error fetching latest analytics data:", error);
+    throw new Error("Failed to fetch latest analytics data");
+  }
+};
+
+export const getCurrentOffer = async () => {
+  const collection = getCollection("offers");
+  try {
+    const activeOffer = await collection.findOne({ active: true });
+    return activeOffer;
+  } catch (_) {
+    return null;
+  }
+}

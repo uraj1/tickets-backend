@@ -9,6 +9,8 @@ import {
   getAllEmailTemplates,
   getTicketsMarkedAsGiven,
   getEmailTemplateById,
+  getCurrentOffer,
+  getLatestAnalytics,
 } from "../utils/dbUtils"; // Assuming these functions are defined in your dbUtils
 import { isLoggedIn } from "../middleware/isLoggedIn";
 import multer from "multer";
@@ -325,9 +327,24 @@ ticketAdminRouter.post("/send-bulk-emails", async (req: Request, res: any) => {
   }
 });
 
-ticketAdminRouter.get("/analytics", (_, res: Response) => {
+ticketAdminRouter.get("/ticket-analytics", async (_, res: Response) => {
   try {
+    const data = await getLatestAnalytics();
+    res.status(200).json(data);
   } catch (e) {
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+});
+
+ticketAdminRouter.get("/offers/active", async (_, res: Response) => {
+  try {
+    const activeOffers = await getCurrentOffer();
+    
+    res.status(200).json(activeOffers);
+  } catch (e) {
+    console.error("Error fetching active offers:", e);
     res.status(500).json({
       message: "Internal server error",
     });

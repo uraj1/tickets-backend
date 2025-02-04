@@ -7,7 +7,6 @@ import {
   updateTicket,
   toggleEntryMarked,
   getAllEmailTemplates,
-  getTicketsMarkedAsGiven,
   getEmailTemplateById,
   getCurrentOffer,
   getLatestAnalytics,
@@ -53,6 +52,7 @@ ticketAdminRouter.get("/whoami", (req: any, res: any) => {
       res.status(401);
     }
   } catch (e) {
+    console.log("Error:", e)
     res.status(500).json({
       message: "Internal server error",
     });
@@ -91,8 +91,6 @@ ticketAdminRouter.get("/tickets/fuzzy", async (req: Request, res: any) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const searchQuery = (req.query.query as string) || "";
-
-    const skip = (page - 1) * limit;
 
     if (!searchQuery) {
       return res.status(400).json({ message: "Search query is required" });
@@ -214,7 +212,7 @@ ticketAdminRouter.post(
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const { mimetype, buffer, size, originalname } = req.file;
+      const { mimetype, buffer, size } = req.file;
 
       if (!ALLOWED_MIME_TYPES.includes(mimetype)) {
         return res.status(400).json({
@@ -231,7 +229,7 @@ ticketAdminRouter.post(
       }
 
       const fileName = `payment_proof_${id}`;
-      var base64data = Buffer.from(buffer as any, "binary");
+      const base64data = Buffer.from(buffer as any, "binary");
       const s3Response = await uploadToS3(
         "bucket.tedx",
         base64data,
@@ -332,6 +330,7 @@ ticketAdminRouter.get("/ticket-analytics", async (_, res: Response) => {
     const data = await getLatestAnalytics();
     res.status(200).json(data);
   } catch (e) {
+    console.log("Error:", e)
     res.status(500).json({
       message: "Internal server error",
     });

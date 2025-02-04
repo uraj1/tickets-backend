@@ -1,5 +1,9 @@
-import type { NextFunction } from 'express';
+import type { NextFunction, Request, Response } from 'express'
 
-export const isLoggedIn = (req: any, res: any, next: NextFunction) => {
-  req.user ? next() : res.sendStatus(401);
-};
+export const isLoggedIn = (req: Request, res: Response, next: NextFunction) => {
+    if (req.user) {
+        next()
+    } else {
+        res.sendStatus(401)
+    }
+}

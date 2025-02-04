@@ -23,7 +23,7 @@ const worker = new Worker(
     logger.info(`Processing file upload for ID: ${id}`);
 
     try {
-      var base64data = Buffer.from(buffer, "binary");
+      const base64data = Buffer.from(buffer, "binary");
       const s3Response = await uploadToS3(
         "bucket.tedx",
         base64data,

@@ -525,7 +525,8 @@ export const getCurrentOffer = async () => {
   try {
     const activeOffer = await collection.findOne({ active: true });
     return activeOffer;
-  } catch (_) {
+  } catch (e) {
+    console.log("Error:", e);
     return null;
   }
 }

@@ -1,9 +1,9 @@
-import express, { Request, Response } from "express";
+import express, { Request } from "express";
 import { z } from "zod";
 import multer from "multer";
 import { formDetails } from "../utils/validationSchemas";
 import { logger } from "../services/logger.service";
-import { createTicket, updateTicket } from "../utils/dbUtils";
+import { createTicket } from "../utils/dbUtils";
 import { addFileUploadToQueue } from "../services/fileUpload.service";
 
 export const ticketsRouter = express.Router();
@@ -92,7 +92,7 @@ ticketsRouter.post(
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const { mimetype, buffer, size, originalname } = req.file;
+      const { mimetype, buffer, size } = req.file;
 
       if (!ALLOWED_MIME_TYPES.includes(mimetype)) {
         return res.status(400).json({

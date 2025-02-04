@@ -10,14 +10,14 @@ import {
   getTicketsMarkedAsGiven,
   getEmailTemplateById,
 } from "../utils/dbUtils"; // Assuming these functions are defined in your dbUtils
-import { ensureAuthenticated } from "../middleware/isAuthenticated";
+import { isLoggedIn } from "../middleware/isLoggedIn";
 import multer from "multer";
 import { uploadToS3 } from "../services/s3.service";
 import { logger } from "../services/logger.service";
 import { emailQueue } from "../services/bullmq.service";
 
 const ticketAdminRouter = express.Router();
-ticketAdminRouter.use(ensureAuthenticated);
+ticketAdminRouter.use(isLoggedIn);
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = [
@@ -38,6 +38,23 @@ const upload = multer({
     }
     cb(null, true);
   },
+});
+
+ticketAdminRouter.get("/whoami", (req: any, res: any) => {
+  try {
+    if (req.user) {
+      res.status(200).json({
+        ...req.user,
+        isLoggedIn: true,
+      });
+    } else {
+      res.status(401);
+    }
+  } catch (e) {
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
 });
 
 /**
@@ -238,23 +255,28 @@ ticketAdminRouter.post(
   }
 );
 
-ticketAdminRouter.get("/email-templates", async (req: Request, res: Response) => {
-  try {
-    const result = await getAllEmailTemplates();
+ticketAdminRouter.get(
+  "/email-templates",
+  async (req: Request, res: Response) => {
+    try {
+      const result = await getAllEmailTemplates();
 
-    const templates = result.templates.map(template => ({
-      id: template._id.toString(),
-      name: template.templateName,
-      subject: template.subject,
-      body: template.body
-    }));
+      const templates = result.templates.map((template) => ({
+        id: template._id.toString(),
+        name: template.templateName,
+        subject: template.subject,
+        body: template.body,
+      }));
 
-    res.status(200).json({ total: result.total, templates });
-  } catch (error) {
-    console.error("Error fetching email templates:", error);
-    res.status(500).json({ message: "Error fetching email templates", error });
+      res.status(200).json({ total: result.total, templates });
+    } catch (error) {
+      console.error("Error fetching email templates:", error);
+      res
+        .status(500)
+        .json({ message: "Error fetching email templates", error });
+    }
   }
-});
+);
 
 /**
  * Route to send bulk emails to tickets marked as given using the email template.
@@ -299,6 +321,15 @@ ticketAdminRouter.post("/send-bulk-emails", async (req: Request, res: any) => {
     res.status(500).json({
       message: "Error processing bulk emails",
       error: error,
+    });
+  }
+});
+
+ticketAdminRouter.get("/analytics", (_, res: Response) => {
+  try {
+  } catch (e) {
+    res.status(500).json({
+      message: "Internal server error",
     });
   }
 });

@@ -452,3 +452,36 @@ export const findAdminById = async (id: string) => {
     throw error;
   }
 }
+
+const getTicketAnalytics = async () => {
+  const collection = getCollection("tickets");
+  const result = await collection.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalTickets: { $sum: 1 },
+        completedTicketsStage2: {
+          $sum: { $cond: [{ $eq: ["$stage", "2"] }, 1, 0] },
+        },
+        verifiedPayments: {
+          $sum: { $cond: [{ $eq: ["$payment_verified", true] }, 1, 0] },
+        },
+        entriesMarked: {
+          $sum: { $cond: [{ $eq: ["$entry_marked", true] }, 1, 0] },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        totalTickets: 1,
+        completedTicketsStage2: 1,
+        verifiedPayments: 1,
+        entriesMarked: 1,
+        timestamp: "$$NOW",
+      },
+    },
+  ]).toArray();
+
+  return result[0] || {};
+};

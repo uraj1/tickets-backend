@@ -8,7 +8,6 @@ import { findAdminByEmail, findAdminById } from "../utils/dbUtils";
 
 export const authRouter = express.Router();
 
-// Passport Local Strategy
 passport.use(
   new LocalStrategy(
     { usernameField: "email", passwordField: "password" },

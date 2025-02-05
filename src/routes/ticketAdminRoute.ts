@@ -10,6 +10,8 @@ import {
   getEmailTemplateById,
   getCurrentOffer,
   getLatestAnalytics,
+  addOffer,
+  updateActiveOffer,
 } from "../utils/dbUtils"; // Assuming these functions are defined in your dbUtils
 import { isLoggedIn } from "../middleware/isLoggedIn";
 import multer from "multer";
@@ -347,6 +349,34 @@ ticketAdminRouter.get("/offers/active", async (_, res: Response) => {
     res.status(500).json({
       message: "Internal server error",
     });
+  }
+});
+
+ticketAdminRouter.post("/offers", async (req: Request, res: Response) => {
+  try {
+    const { offer, price, active } = req.body;
+    const newOffer = await addOffer({ offer, price, active });
+
+    res.status(201).json({ message: "Offer added successfully", newOffer });
+  } catch (e) {
+    console.error("Error adding offer:", e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+ticketAdminRouter.patch("/offers/active", async (req: Request, res: Response) => {
+  try {
+    const { offerId, currentOfferId } = req.body;
+    const success = await updateActiveOffer(offerId, currentOfferId);
+
+    if (success) {
+      res.status(200).json({ message: "Active offer updated successfully" });
+    } else {
+      res.status(400).json({ message: "Failed to update active offer" });
+    }
+  } catch (e) {
+    console.error("Error updating active offer:", e);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 

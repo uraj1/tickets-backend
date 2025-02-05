@@ -2,6 +2,7 @@ import { db } from "../services/database.service";
 import Ticket from "../models/tickets";
 import EmailTemplates from "../models/emailTemplates";
 import { ObjectId } from "mongodb";
+import Offers from "../models/offers";
 
 const getCollection = (collectionName: "tickets" | "email_templates" | "admins" | "analytics" | "offers") => {
   if (!db) {
@@ -523,10 +524,45 @@ export const getLatestAnalytics = async () => {
 export const getCurrentOffer = async () => {
   const collection = getCollection("offers");
   try {
-    const activeOffer = await collection.findOne({ active: true });
-    return activeOffer;
+    const allOffers = await collection.find().toArray();
+    return allOffers;
   } catch (e) {
     console.log("Error:", e);
     return null;
   }
 }
+
+export const addOffer = async (offerData: Offers) => {
+  const collection = getCollection("offers");
+  try {
+    const result = await collection.insertOne(offerData);
+    return result.insertedId;
+  } catch (e) {
+    console.log("Error adding offer:", e);
+    return null;
+  }
+};
+
+export const updateActiveOffer = async (offerId: string, currentOfferId: string) => {
+  const collection = getCollection("offers");
+  try {
+    // Set the current active offer to false if it exists
+    if (currentOfferId) {
+      await collection.updateOne(
+        { _id: new ObjectId(currentOfferId) },
+        { $set: { active: false } }
+      );
+    }
+
+    // Activate the new offer
+    const result = await collection.updateOne(
+      { _id: new ObjectId(offerId) },
+      { $set: { active: true } }
+    );
+
+    return result.modifiedCount > 0;
+  } catch (e) {
+    console.error("Error updating active offer:", e);
+    return false;
+  }
+};

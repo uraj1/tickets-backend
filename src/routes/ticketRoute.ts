@@ -3,7 +3,7 @@ import { z } from "zod";
 import multer from "multer";
 import { formDetails } from "../utils/validationSchemas";
 import { logger } from "../services/logger.service";
-import { createTicket } from "../utils/dbUtils";
+import { createTicket, getActiveOffer } from "../utils/dbUtils";
 import { addFileUploadToQueue } from "../services/fileUpload.service";
 
 export const ticketsRouter = express.Router();
@@ -122,5 +122,20 @@ ticketsRouter.post(
     }
   }
 );
+
+ticketsRouter.get("/offers/current", async (_, res: any) => {
+  try {
+    const activeOffer = await getActiveOffer();
+    
+    if (!activeOffer) {
+      return res.status(404).json({ message: "No active offer found" });
+    }
+
+    res.status(200).json(activeOffer);
+  } catch (e) {
+    console.error("Error fetching current offer:", e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
 
 export default ticketsRouter;

@@ -8,7 +8,7 @@ import {
   toggleEntryMarked,
   getAllEmailTemplates,
   getEmailTemplateById,
-  getCurrentOffer,
+  getAllOffers,
   getLatestAnalytics,
   addOffer,
   updateActiveOffer,
@@ -341,7 +341,7 @@ ticketAdminRouter.get("/ticket-analytics", async (_, res: Response) => {
 
 ticketAdminRouter.get("/offers/list", async (_, res: Response) => {
   try {
-    const activeOffers = await getCurrentOffer();
+    const activeOffers = await getAllOffers();
     
     res.status(200).json(activeOffers);
   } catch (e) {

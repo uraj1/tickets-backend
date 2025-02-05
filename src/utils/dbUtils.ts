@@ -521,7 +521,7 @@ export const getLatestAnalytics = async () => {
   }
 };
 
-export const getCurrentOffer = async () => {
+export const getAllOffers = async () => {
   const collection = getCollection("offers");
   try {
     const allOffers = await collection.find().toArray();
@@ -531,6 +531,16 @@ export const getCurrentOffer = async () => {
     return null;
   }
 }
+
+export const getActiveOffer = async () => {
+  const collection = getCollection("offers");
+  try {
+    return await collection.findOne({ active: true });
+  } catch (e) {
+    console.error("Error fetching active offer:", e);
+    return null;
+  }
+};
 
 export const addOffer = async (offerData: Offers) => {
   const collection = getCollection("offers");

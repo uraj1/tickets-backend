@@ -339,7 +339,7 @@ ticketAdminRouter.get("/ticket-analytics", async (_, res: Response) => {
   }
 });
 
-ticketAdminRouter.get("/offers/active", async (_, res: Response) => {
+ticketAdminRouter.get("/offers/list", async (_, res: Response) => {
   try {
     const activeOffers = await getCurrentOffer();
     

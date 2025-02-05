@@ -47,9 +47,11 @@ ticketAdminRouter.get("/whoami", (req: any, res: any) => {
   try {
     if (req.user) {
       res.status(200).json({
-        ...req.user,
+        _id: req.user._id,
+        email: req.user.email,
+        isSuperAdmin: req.user.isSuperAdmin,
         isLoggedIn: true,
-      });
+      });      
     } else {
       res.status(401);
     }

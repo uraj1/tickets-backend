@@ -22,6 +22,7 @@ app.get("/", (_, res) => {
   res.status(200).json({ message: "Server is healthy" });
 });
 
+app.set('trust proxy', 1) // For trusting reverse proxies like nginx
 app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());

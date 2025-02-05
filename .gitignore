@@ -88,4 +88,5 @@ fair-smoke-448809-s8-c3f78b08f95e.json
 job-logs.txt
 sheet.json
 tedx.pem
-tickets-server_key.pem
+azure.pem
+infra/azure.pem

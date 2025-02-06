@@ -18,6 +18,7 @@ import multer from "multer";
 import { uploadToS3 } from "../services/s3.service";
 import { logger } from "../services/logger.service";
 import { emailQueue } from "../services/bullmq.service";
+import requireSuperAdmin from "../middleware/isSuperAdmin";
 
 const ticketAdminRouter = express.Router();
 ticketAdminRouter.use(isLoggedIn);

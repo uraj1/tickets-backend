@@ -23,6 +23,8 @@ app.get("/", (_, res) => {
 });
 
 app.set('trust proxy', 1) // For trusting reverse proxies like nginx
+app.set('Access-Control-Allow-Credentials', true);
+app.set('Access-Control-Allow-Origin', '*');
 app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());

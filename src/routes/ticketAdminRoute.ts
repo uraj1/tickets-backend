@@ -323,6 +323,20 @@ ticketAdminRouter.get("/ticket-analytics", async (_, res: Response) => {
   }
 });
 
+
+ticketAdminRouter.get("/offers/list", async (_, res: Response) => {
+  try {
+    const activeOffers = await getAllOffers();
+    
+    res.status(200).json(activeOffers);
+  } catch (e) {
+    console.error("Error fetching active offers:", e);
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+});
+
 // All routes below this can be only accessed by a super admin.
 ticketAdminRouter.use(requireSuperAdmin)
 
@@ -369,19 +383,6 @@ ticketAdminRouter.post("/send-bulk-emails", async (req: Request, res: any) => {
     res.status(500).json({
       message: "Error processing bulk emails",
       error: error,
-    });
-  }
-});
-
-ticketAdminRouter.get("/offers/list", async (_, res: Response) => {
-  try {
-    const activeOffers = await getAllOffers();
-    
-    res.status(200).json(activeOffers);
-  } catch (e) {
-    console.error("Error fetching active offers:", e);
-    res.status(500).json({
-      message: "Internal server error",
     });
   }
 });

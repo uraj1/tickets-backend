@@ -19,12 +19,12 @@ passport.use(
           return done(null, false, { message: "Incorrect email or password." });
         }
 
-        if (!user.hashedPassword) {
+        if (!user.password) {
           console.error("Error: user.hashedPassword is undefined for user:", user);
           return done(null, false, { message: "Incorrect email or password." });
         }
 
-        const isMatch = await bcrypt.compare(password, user.hashedPassword);
+        const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
           return done(null, false, { message: "Incorrect email or password." });
         }

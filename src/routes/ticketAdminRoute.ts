@@ -12,13 +12,18 @@ import {
   getLatestAnalytics,
   addOffer,
   updateActiveOffer,
+  getAttendees,
+  getAllAdmins,
+  addAdmin,
+  deleteOffer
 } from "../utils/dbUtils"; // Assuming these functions are defined in your dbUtils
 import { isLoggedIn } from "../middleware/isLoggedIn";
 import multer from "multer";
 import { uploadToS3 } from "../services/s3.service";
 import { logger } from "../services/logger.service";
-import { emailQueue } from "../services/bullmq.service";
+import { emailQueue, onboardingEmailQueue } from "../services/bullmq.service";
 import requireSuperAdmin from "../middleware/isSuperAdmin";
+import { adminsSchema } from "../utils/validationSchemas";
 
 const ticketAdminRouter = express.Router();
 ticketAdminRouter.use(isLoggedIn);
@@ -85,6 +90,19 @@ ticketAdminRouter.get("/tickets", async (req: Request, res: Response) => {
   }
 });
 
+ticketAdminRouter.get("/attendees", async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const result = await getAttendees(page, limit);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error in fetching tickets:", error);
+    res.status(500).json({ message: "Error fetching tickets", error });
+  }
+});
+
 /**
  * Route to search tickets explicitly using the searchTickets function
  * @route GET /tickets/fuzzy
@@ -101,7 +119,17 @@ ticketAdminRouter.get("/tickets/fuzzy", async (req: Request, res: any) => {
       return res.status(400).json({ message: "Search query is required" });
     }
 
-    const result = await searchTickets(searchQuery, page, limit);
+    // Extract filter fields dynamically from query parameters
+    const allowedFilters = ["ticket_given"];
+    const filter: Record<string, any> = {};
+
+    allowedFilters.forEach((field) => {
+      if (req.query[field]) {
+        filter[field] = req.query[field];
+      }
+    });
+
+    const result = await searchTickets(searchQuery, page, limit, filter);
     res.status(200).json(result);
   } catch (error) {
     console.error("Error in searching tickets:", error);
@@ -283,6 +311,21 @@ ticketAdminRouter.get(
   }
 );
 
+ticketAdminRouter.get("/ticket-analytics", async (_, res: Response) => {
+  try {
+    const data = await getLatestAnalytics();
+    res.status(200).json(data);
+  } catch (e) {
+    console.log("Error:", e)
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+});
+
+// All routes below this can be only accessed by a super admin.
+ticketAdminRouter.use(requireSuperAdmin)
+
 /**
  * Route to send bulk emails to tickets marked as given using the email template.
  * @route POST /admin/send-bulk-emails
@@ -330,18 +373,6 @@ ticketAdminRouter.post("/send-bulk-emails", async (req: Request, res: any) => {
   }
 });
 
-ticketAdminRouter.get("/ticket-analytics", async (_, res: Response) => {
-  try {
-    const data = await getLatestAnalytics();
-    res.status(200).json(data);
-  } catch (e) {
-    console.log("Error:", e)
-    res.status(500).json({
-      message: "Internal server error",
-    });
-  }
-});
-
 ticketAdminRouter.get("/offers/list", async (_, res: Response) => {
   try {
     const activeOffers = await getAllOffers();
@@ -380,6 +411,51 @@ ticketAdminRouter.patch("/offers/active", async (req: Request, res: Response) =>
   } catch (e) {
     console.error("Error updating active offer:", e);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+ticketAdminRouter.delete("/offers/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const success = await deleteOffer(id);
+
+    if (success) {
+      res.status(200).json({ message: "Offer deleted successfully" });
+    } else {
+      res.status(404).json({ message: "Offer not found or already deleted" });
+    }
+  } catch (e) {
+    console.error("Error deleting offer:", e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+ticketAdminRouter.get("/list", async (req: any, res: Response) => {
+  try {
+    const admins = await getAllAdmins();
+
+    res.status(200).json({ admins });
+  } catch (e) {
+    console.error("Error fetching admins:", e);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+ticketAdminRouter.post("/add", async (req: Request, res: Response) => {
+  try {
+    console.log(req.user)
+    const { email, password } = adminsSchema.parse(req.body);
+    const response = await addAdmin(email, password);
+
+    if (response.success) {
+      await onboardingEmailQueue.add("send-onboarding-email", { email, password });
+      res.status(201).json({ message: "Admin added successfully", adminId: response.adminId });
+    } else {
+      res.status(400).json({ message: response.message });
+    }
+  } catch (error) {
+    console.error("Error adding admin:", error);
+    res.status(500).json({ message: "Internal server error", error });
   }
 });
 

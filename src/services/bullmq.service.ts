@@ -1,130 +1,183 @@
-import { Queue, Worker, Job } from "bullmq";
-import { logger } from "./logger.service";
-import { uploadToS3 } from "./s3.service";
+import { Queue, Worker, Job } from 'bullmq'
+import { logger } from './logger.service'
+import { uploadToS3 } from './s3.service'
 import {
-  getTicketById,
-  getTicketsMarkedAsGiven,
-  updateEmailSentStatus,
-  updateTicket,
-} from "../utils/dbUtils";
-import { formatReadableDate } from "../utils/timeUtils";
-import { appendToSheet } from "../utils/sheets";
-import { sendEmail } from "./nodemailer.service";
+    getTicketById,
+    getTicketsMarkedAsGiven,
+    updateEmailSentStatus,
+    updateTicket,
+} from '../utils/dbUtils'
+import { formatReadableDate } from '../utils/timeUtils'
+import { appendToSheet } from '../utils/sheets'
+import { sendEmail } from './nodemailer.service'
 
-const connection = { host: "localhost", port: 6379 };
+const connection = { host: 'localhost', port: 6379 }
 
-export const progressQueue = new Queue("finalize", { connection });
-export const emailQueue = new Queue("bulk-email", { connection });
+export const progressQueue = new Queue('finalize', { connection })
+export const emailQueue = new Queue('bulk-email', { connection })
+export const onboardingEmailQueue = new Queue('onboarding-email', {
+    connection,
+})
 
 const worker = new Worker(
-  "finalize",
-  async (job: Job) => {
-    const { id, buffer, fileName, mimetype } = job.data;
-    logger.info(`Processing file upload for ID: ${id}`);
+    'finalize',
+    async (job: Job) => {
+        const { id, buffer, fileName, mimetype } = job.data
+        logger.info(`Processing file upload for ID: ${id}`)
 
-    try {
-      const base64data = Buffer.from(buffer, "binary");
-      const s3Response = await uploadToS3(
-        "bucket.tedx",
-        base64data,
-        fileName,
-        mimetype
-      );
+        try {
+            const base64data = Buffer.from(buffer, 'binary')
+            const s3Response = await uploadToS3(
+                'bucket.tedx',
+                base64data,
+                fileName,
+                mimetype
+            )
 
-      logger.info(`File uploaded to S3 for ID: ${id}. URL: ${s3Response}`);
+            logger.info(`File uploaded to S3 for ID: ${id}. URL: ${s3Response}`)
 
-      await updateTicket(id, { stage: "2", payment_proof: s3Response });
-      const result = await getTicketById(id);
-      const row = {
-        Timestamp: formatReadableDate(result?.createdAt) || "undefined",
-        Email: result?.email || "undefined",
-        Name: result?.name || "undefined",
-        "Roll Number": result?.rollNumber || "undefined",
-        "Contact Number": result?.contactNumber || "undefined",
-        Course: result?.degree || "undefined",
-        Year: result?.year || "undefined",
-        Branch: result?.branch || "undefined",
-        payment_proof: result?.payment_proof || "null",
-      };
+            await updateTicket(id, { stage: '2', payment_proof: s3Response })
+            const result = await getTicketById(id)
+            const row = {
+                Timestamp: formatReadableDate(result?.createdAt) || 'undefined',
+                Email: result?.email || 'undefined',
+                Name: result?.name || 'undefined',
+                'Roll Number': result?.rollNumber || 'undefined',
+                'Contact Number': result?.contactNumber || 'undefined',
+                Course: result?.degree || 'undefined',
+                Year: result?.year || 'undefined',
+                Branch: result?.branch || 'undefined',
+                payment_proof: result?.payment_proof || 'null',
+            }
 
-      const values = Object.values(row);
+            const values = Object.values(row)
 
-      const sheetRange = "Sheet1!A1";
+            const sheetRange = 'Sheet1!A1'
 
-      const sheetValues = [values];
-      await appendToSheet(sheetRange, sheetValues);
+            const sheetValues = [values]
+            await appendToSheet(sheetRange, sheetValues)
 
-      logger.info(`Database updated for ID: ${id}`);
-    } catch (error) {
-      logger.error(`Error processing file upload for ID: ${id}: ${error}`);
-      throw error;
-    }
-  },
-  { connection }
-);
+            logger.info(`Database updated for ID: ${id}`)
+        } catch (error) {
+            logger.error(`Error processing file upload for ID: ${id}: ${error}`)
+            throw error
+        }
+    },
+    { connection }
+)
 
 const emailWorker = new Worker(
-  "bulk-email",
-  async (job: Job) => {
-    const { templateId, subject, body } = job.data;
-    logger.info(`Processing email job for Ticket(s)`);
+    'bulk-email',
+    async (job: Job) => {
+        const { templateId, subject, body } = job.data
+        logger.info(`Processing email job for Ticket(s)`)
 
-    try {
-      const tickets = await getTicketsMarkedAsGiven(templateId);
+        try {
+            const tickets = await getTicketsMarkedAsGiven(templateId)
 
-      if (tickets.length === 0) {
-        logger.info("No tickets marked as given, no emails to send.");
-        return;
-      }
+            if (tickets.length === 0) {
+                logger.info('No tickets marked as given, no emails to send.')
+                return
+            }
 
-      for (const ticket of tickets) {
-        const { _id, email, name, ticket_number } = ticket;
+            for (const ticket of tickets) {
+                const { _id, email, name, ticket_number } = ticket
 
-        if (!email) {
-          logger.warn(`No email found for Ticket ID: ${_id}`);
-          continue;
+                if (!email) {
+                    logger.warn(`No email found for Ticket ID: ${_id}`)
+                    continue
+                }
+
+                let personalizedBody = body.replace('{{name}}', name || 'Guest')
+                personalizedBody = personalizedBody.replace(
+                    '{{ticket_number}}',
+                    ticket_number || 'N/A'
+                )
+
+                // Send the email
+                await sendEmail(email, subject, personalizedBody)
+
+                // After sending the email, update the ticket status
+                const updateResult = await updateEmailSentStatus(
+                    _id.toString(),
+                    templateId
+                )
+
+                if (updateResult) {
+                    logger.info(
+                        `Email sent successfully to ${email} for Ticket ID: ${_id}. Email status updated.`
+                    )
+                } else {
+                    logger.warn(
+                        `Failed to update email sent status for Ticket ID: ${_id}`
+                    )
+                }
+            }
+        } catch (error) {
+            logger.error(`Error processing email job: ${error}`)
+            throw error
         }
+    },
+    { connection }
+)
 
-        let personalizedBody = body.replace("{{name}}", name || "Guest");
-        personalizedBody = personalizedBody.replace(
-          "{{ticket_number}}",
-          ticket_number || "N/A"
-        );
+const onboardingEmailWorker = new Worker(
+    'onboarding-email',
+    async (job: Job) => {
+        const { email, password } = job.data
+        logger.info(`Processing onboarding email for: ${email}`)
 
-        // Send the email
-        await sendEmail(email, subject, personalizedBody);
+        try {
+            const subject = 'Welcome to the TEDxNITKKR Management Portal 🎉'
+            const body = `Dear Admin,
 
-        // After sending the email, update the ticket status
-        const updateResult = await updateEmailSentStatus(_id.toString(), templateId);
+Welcome to the TEDxNITKKR Management Portal! 🎊 We’re excited to have you onboard as a key part of our team.
 
-        if (updateResult) {
-          logger.info(
-            `Email sent successfully to ${email} for Ticket ID: ${_id}. Email status updated.`
-          );
-        } else {
-          logger.warn(`Failed to update email sent status for Ticket ID: ${_id}`);
+To access the portal, please use the following credentials:
+
+Email: ${email}
+Password: ${password}
+
+Access the Portal:
+https://tickets-admin.pages.dev/mgmt
+
+If you face any issues, feel free to reach out to us at support@tedxnitkkr.com.
+
+Looking forward to an amazing journey together! 🚀
+
+Best regards,
+TEDxNITKKR Team`
+
+            await sendEmail(email, subject, body)
+            logger.info(`Onboarding email sent successfully to: ${email}`)
+        } catch (error) {
+            logger.error(`Error sending onboarding email to ${email}: ${error}`)
+            throw error
         }
-      }
-    } catch (error) {
-      logger.error(`Error processing email job: ${error}`);
-      throw error;
-    }
-  },
-  { connection }
-);
+    },
+    { connection }
+)
 
-emailWorker.on("completed", (job) => {
-  logger.info(`Email job ${job.id} completed successfully.`);
+emailWorker.on('completed', (job) => {
+    logger.info(`Email job ${job.id} completed successfully.`)
+})
+
+emailWorker.on('failed', (job, err) => {
+    logger.error(`Email job ${job?.id} failed with error: ${err.message}`)
+})
+
+worker.on('completed', (job) => {
+    logger.info(`Job ${job.id} completed successfully.`)
+})
+
+worker.on('failed', (job, err) => {
+    logger.error(`Job ${job?.id} failed with error: ${err.message}`)
+})
+
+onboardingEmailWorker.on("completed", (job) => {
+  logger.info(`Onboarding email job ${job.id} completed successfully.`);
 });
 
-emailWorker.on("failed", (job, err) => {
-  logger.error(`Email job ${job?.id} failed with error: ${err.message}`);
-});
-
-worker.on("completed", (job) => {
-  logger.info(`Job ${job.id} completed successfully.`);
-});
-
-worker.on("failed", (job, err) => {
-  logger.error(`Job ${job?.id} failed with error: ${err.message}`);
+onboardingEmailWorker.on("failed", (job, err) => {
+  logger.error(`Onboarding email job ${job?.id} failed with error: ${err.message}`);
 });

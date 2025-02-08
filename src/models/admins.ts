@@ -6,6 +6,7 @@ export default class Admins {
     public password: string,
     public isSuperAdmin: string,
     public createdAt: Date,
+    public hasOnboarded: boolean,
     public _id?: ObjectId
   ) {}
 }

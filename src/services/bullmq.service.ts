@@ -129,24 +129,29 @@ const onboardingEmailWorker = new Worker(
 
         try {
             const subject = 'Welcome to the TEDxNITKKR Management Portal 🎉'
-            const body = `Dear Admin,
+            const body =`WELCOME TO THE TEDxNITKKR MANAGEMENT PORTAL! 🚀  
+We're thrilled to have you on board as a key part of our team.  
 
-Welcome to the TEDxNITKKR Management Portal! 🎊 We’re excited to have you onboard as a key part of our team.
+🔑 Your login credentials:  
+EMAIL: ${email} 
+PASSWORD: ${password}
 
-To access the portal, please use the following credentials:
+🌐 ACCESS THE PORTAL:  
+https://mgmttedx.sanniv.tech 
 
-Email: ${email}
-Password: ${password}
+✅ WHAT’S NEXT?  
+- Log in using the credentials above.  
+- Reset your password after logging in for security reasons.  
+- Explore the portal and manage tasks effortlessly.  
 
-Access the Portal:
-https://tickets-admin.pages.dev/mgmt
+📩 NEED HELP?  
+If you have any questions, reach out to us at support@tedxnitkkr.com.  
 
-If you face any issues, feel free to reach out to us at support@tedxnitkkr.com.
+LOOKING FORWARD TO AN AMAZING JOURNEY TOGETHER! 🎭🔥  
 
-Looking forward to an amazing journey together! 🚀
-
-Best regards,
-TEDxNITKKR Team`
+BEST REGARDS,  
+TEDxNITKKR TEAM  
+`
 
             await sendEmail(email, subject, body)
             logger.info(`Onboarding email sent successfully to: ${email}`)

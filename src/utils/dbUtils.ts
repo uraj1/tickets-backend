@@ -495,7 +495,7 @@ export const findAdminByEmail = async (email: string) => {
 
         const admin = await collection.findOne(
             { email },
-            { projection: { password: 1, email: 1 } }
+            { projection: { password: 1, email: 1, hasOnboarded: 1 } }
         )
         return admin
     } catch (error) {
@@ -664,7 +664,17 @@ export const getAllAdmins = async () => {
 
     try {
         const admins = await collection
-            .find({}, { projection: { email: 1, isSuperAdmin: 1, _id: 0 } })
+            .find(
+                {},
+                {
+                    projection: {
+                        email: 1,
+                        isSuperAdmin: 1,
+                        hasOnboarded: 1,
+                        _id: 0,
+                    },
+                }
+            )
             .toArray()
 
         return admins
@@ -693,7 +703,37 @@ export const addAdmin = async (email: string, password: string) => {
 
         return { success: true, adminId: result.insertedId }
     } catch (error) {
-        console.error('Error adding admin:', error)
         return { success: false, message: 'Internal server error' }
+    }
+}
+
+export const resetPassword = async (id: string, newPassword: string) => {
+    const collection = getCollection('admins')
+    try {
+        const admin = await collection.findOne({ _id: new ObjectId(id) })
+        if (!admin) {
+            return { success: false, message: 'No admin exists' }
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10)
+
+        if (hashedPassword === admin.password) {
+            return {
+                success: false,
+                message: 'New password and previous cannot be same',
+            }
+        }
+        const result = await collection.updateOne(
+            { _id: new ObjectId(id) },
+            {
+                $set: {
+                    password: hashedPassword,
+                    hasOnboarded: true,
+                },
+            }
+        )
+        return { success: true }
+    } catch (error) {
+        return { success: false, message: error }
     }
 }

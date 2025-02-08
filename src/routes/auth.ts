@@ -63,13 +63,13 @@ authRouter.post("/login", (req: Request, res: any, next: NextFunction) => {
         if (err) return next(err);
         return res.json({ message: "Logged in successfully", user: {
           email: user.email,
-          id: user._id
+          id: user._id,
+          hasOnboarded: user.hasOnboarded
         } });
       });
     })(req, res, next);
 
   } catch (error) {
-    console.error("Error in admin login:", error);
     res.status(500).json({ message: "Error in admin login", error });
   }
 });

@@ -17,5 +17,4 @@ export const formDetails = z.object({
 
 export const adminsSchema = z.object({
   email: z.string().email(),
-  password: z.string(),
 })

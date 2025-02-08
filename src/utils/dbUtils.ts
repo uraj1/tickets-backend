@@ -703,6 +703,7 @@ export const addAdmin = async (email: string, password: string) => {
 
         return { success: true, adminId: result.insertedId }
     } catch (error) {
+        console.log(error)
         return { success: false, message: 'Internal server error' }
     }
 }
@@ -723,7 +724,7 @@ export const resetPassword = async (id: string, newPassword: string) => {
                 message: 'New password and previous cannot be same',
             }
         }
-        const result = await collection.updateOne(
+        await collection.updateOne(
             { _id: new ObjectId(id) },
             {
                 $set: {

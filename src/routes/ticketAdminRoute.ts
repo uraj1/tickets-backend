@@ -18,7 +18,10 @@ import {
     deleteOffer,
     resetPassword,
 } from '../utils/dbUtils' // Assuming these functions are defined in your dbUtils
-import { isLoggedIn, isLoggedInWithoutOnboarding } from '../middleware/isLoggedIn'
+import {
+    isLoggedIn,
+    isLoggedInWithoutOnboarding,
+} from '../middleware/isLoggedIn'
 import multer from 'multer'
 import { uploadToS3 } from '../services/s3.service'
 import { logger } from '../services/logger.service'
@@ -52,26 +55,27 @@ const upload = multer({
     },
 })
 
-ticketAdminRouter.use(isLoggedInWithoutOnboarding);
+ticketAdminRouter.use(isLoggedInWithoutOnboarding)
 
 ticketAdminRouter.post('/reset-password', async (req: any, res: any) => {
-  try {
-    const { password } = req.body
-      if (req.user.hasOnboarded) {
-          res.status(400).json({
-              message: 'You cannot change password after onboarding',
-          })
-      }
-      const result = await resetPassword(req.user._id, password);
-      res.status(200).json(result);
-  } catch (error) {
-      res.status(500).json({
-          message: 'Internal server error',
-      })
-  }
+    try {
+        const { password } = req.body
+        if (req.user.hasOnboarded) {
+            res.status(400).json({
+                message: 'You cannot change password after onboarding',
+            })
+        }
+        const result = await resetPassword(req.user._id, password)
+        res.status(200).json(result)
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({
+            message: 'Internal server error',
+        })
+    }
 })
 
-ticketAdminRouter.use(isLoggedIn);
+ticketAdminRouter.use(isLoggedIn)
 
 ticketAdminRouter.get('/whoami', (req: any, res: any) => {
     try {
@@ -87,6 +91,7 @@ ticketAdminRouter.get('/whoami', (req: any, res: any) => {
             res.status(401)
         }
     } catch (e) {
+        console.log(e)
         res.status(500).json({
             message: 'Internal server error',
         })
@@ -176,12 +181,9 @@ ticketAdminRouter.post(
             const result = await verifyTicketPayment(ticketId)
 
             if (!result) {
-                return res
-                    .status(404)
-                    .json({
-                        message:
-                            'Ticket not found or payment verification failed',
-                    })
+                return res.status(404).json({
+                    message: 'Ticket not found or payment verification failed',
+                })
             }
 
             res.status(200).json({
@@ -353,6 +355,7 @@ ticketAdminRouter.get('/ticket-analytics', async (_, res: Response) => {
         const data = await getLatestAnalytics()
         res.status(200).json(data)
     } catch (e) {
+        console.log(e)
         res.status(500).json({
             message: 'Internal server error',
         })
@@ -493,7 +496,10 @@ ticketAdminRouter.post('/add', async (req: Request, res: Response) => {
         const response = await addAdmin(email, password)
 
         if (response.success) {
-            await onboardingEmailQueue.add('send-onboarding-email', { email, password })
+            await onboardingEmailQueue.add('send-onboarding-email', {
+                email,
+                password,
+            })
             res.status(201).json({
                 message: 'Admin added successfully',
                 adminId: response.adminId,

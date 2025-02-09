@@ -699,6 +699,7 @@ export const addAdmin = async (email: string, password: string) => {
             email,
             password: hashedPassword,
             isSuperAdmin: false,
+            hasOnboarded: false
         })
 
         return { success: true, adminId: result.insertedId }

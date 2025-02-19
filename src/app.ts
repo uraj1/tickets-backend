@@ -8,6 +8,7 @@ import ticketAdminRouter from "./routes/ticketAdminRoute";
 import passport from "passport";
 import { sessionMiddleware } from "./middleware/session";
 import authRouter from "./routes/auth";
+import metricsRouter from "./routes/metricsRoute";
 
 const app = express();
 
@@ -37,5 +38,6 @@ app.use(authRouter)
 app.use('/api/v1', ticketsRouter);
 app.use('/logs', logsRouter);
 app.use('/admin', ticketAdminRouter)
+app.use('/metrics', metricsRouter)
 
 export default app;

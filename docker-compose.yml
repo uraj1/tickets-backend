@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  app:
+    container_name: tickets-app
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    networks:
+      - api-dockernet
+
+  redis:
+    container_name: redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - api-dockernet
+
+volumes:
+  redis-data:
+
+networks:
+  api-dockernet:
+    driver: bridge

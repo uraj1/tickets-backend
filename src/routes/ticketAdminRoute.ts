@@ -17,7 +17,7 @@ import {
     addAdmin,
     deleteOffer,
     resetPassword,
-} from '../utils/dbUtils' // Assuming these functions are defined in your dbUtils
+} from '../utils/dbUtils'
 import {
     isLoggedIn,
     isLoggedInWithoutOnboarding,
@@ -25,6 +25,7 @@ import {
 import multer from 'multer'
 import { uploadToS3 } from '../services/s3.service'
 import { logger } from '../services/logger.service'
+import redisClient from '../services/cache.service'
 import { emailQueue, onboardingEmailQueue } from '../services/bullmq.service'
 import requireSuperAdmin from '../middleware/isSuperAdmin'
 import { adminsSchema } from '../utils/validationSchemas'
@@ -105,19 +106,34 @@ ticketAdminRouter.get('/whoami', (req: any, res: any) => {
  * @queryParam {number} limit - The number of items per page (default: 10)
  * @returns {Object} Paginated ticket data or an error message
  */
-ticketAdminRouter.get('/tickets', async (req: Request, res: Response) => {
+ticketAdminRouter.get('/tickets', async (req: any, res: any) => {
     try {
-        const page = parseInt(req.query.page as string) || 1
-        const limit = parseInt(req.query.limit as string) || 10
-        const skip = (page - 1) * limit
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const skip = (page - 1) * limit;
 
-        const result = await getAllTickets(page, limit, skip)
-        res.status(200).json(result)
+        const cacheKey = `tickets:page=${page}:limit=${limit}`;
+        const isCacheEnabled = (await redisClient.get('feature:cache_enabled')) === 'true';
+
+        if (isCacheEnabled) {
+            const cachedData = await redisClient.get(cacheKey);
+            if (cachedData) {
+                return res.status(200).json(JSON.parse(cachedData));
+            }
+        }
+
+        const result = await getAllTickets(page, limit, skip);
+
+        if (isCacheEnabled) {
+            await redisClient.set(cacheKey, JSON.stringify(result));
+        }
+
+        res.status(200).json(result );
     } catch (error) {
-        console.error('Error in fetching tickets:', error)
-        res.status(500).json({ message: 'Error fetching tickets', error })
+        console.error('Error in fetching tickets:', error);
+        res.status(500).json({ message: 'Error fetching tickets', error });
     }
-})
+});
 
 ticketAdminRouter.get('/attendees', async (req: Request, res: Response) => {
     try {
@@ -511,6 +527,25 @@ ticketAdminRouter.post('/add', async (req: Request, res: Response) => {
         console.error('Error adding admin:', error)
         res.status(500).json({ message: 'Internal server error', error })
     }
+})
+
+ticketAdminRouter.post('/toggle-cache', async (req: Request, res: any) => {
+    const { enabled } = req.body
+
+    if (typeof enabled !== 'boolean') {
+        return res.status(400).json({ message: 'Invalid value for enabled' })
+    }
+
+    await redisClient.set('feature:cache_enabled', enabled.toString())
+
+    res.json({ message: `Cache feature ${enabled ? 'enabled' : 'disabled'}` })
+})
+
+ticketAdminRouter.get('/cache-status', async (_, res) => {
+    const isCacheEnabled =
+        (await redisClient.get('feature:cache_enabled')) === 'true'
+
+    res.json({ cacheEnabled: isCacheEnabled })
 })
 
 export default ticketAdminRouter

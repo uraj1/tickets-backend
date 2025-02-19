@@ -10,8 +10,11 @@ import {
 import { formatReadableDate } from '../utils/timeUtils'
 import { appendToSheet } from '../utils/sheets'
 import { sendEmail } from './nodemailer.service'
+import * as dotenv from "dotenv";
 
-const connection = { host: 'localhost', port: 6379 }
+dotenv.config();
+
+const connection = { host: process.env.REDIS_HOST, port: 6379 }
 
 export const progressQueue = new Queue('finalize', { connection })
 export const emailQueue = new Queue('bulk-email', { connection })

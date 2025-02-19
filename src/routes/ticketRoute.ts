@@ -5,6 +5,7 @@ import { formDetails } from "../utils/validationSchemas";
 import { logger } from "../services/logger.service";
 import { createTicket, getActiveOffer } from "../utils/dbUtils";
 import { addFileUploadToQueue } from "../services/fileUpload.service";
+import { invalidateTicketCache } from "../services/cache.service";
 
 export const ticketsRouter = express.Router();
 ticketsRouter.use(express.json());
@@ -63,6 +64,7 @@ ticketsRouter.post("/save-progress", async (req: Request, res: any) => {
       payment_verified: false,
       ticket_given: false,
     });
+    await invalidateTicketCache()
     logger.info(`Ticket created successfully with ID: ${createdTicket.id}`);
 
     res.status(200).json({ id: createdTicket, message: `Success at stage 1` });
@@ -112,6 +114,7 @@ ticketsRouter.post(
       await addFileUploadToQueue(id, buffer, fileName, mimetype);
 
       logger.info(`File upload job added to queue for ID: ${id}`);
+      await invalidateTicketCache()
       res.status(200).json({ message: "File upload queued successfully", id });
     } catch (error: any) {
       logger.error(`Error during file upload: ${error.message}`);

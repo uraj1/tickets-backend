@@ -107,5 +107,3 @@ volumes:
 networks:
   api-dockernet:
     driver: bridge
-    driver_opts:
-      com.docker.network.bridge.name: api-dockernet_if

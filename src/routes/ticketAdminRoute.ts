@@ -17,6 +17,10 @@ import {
     addAdmin,
     deleteOffer,
     resetPassword,
+    addNote,
+    getAllNotes,
+    deleteNote,
+    updateNote,
 } from '../utils/dbUtils'
 import {
     isLoggedIn,
@@ -30,10 +34,11 @@ import { emailQueue, onboardingEmailQueue } from '../services/bullmq.service'
 import requireSuperAdmin from '../middleware/isSuperAdmin'
 import { adminsSchema } from '../utils/validationSchemas'
 import { generatePassword } from '../utils/passwordUtils'
+import { ObjectId } from 'mongodb'
 
 const ticketAdminRouter = express.Router()
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024
+const MAX_FILE_SIZE = 20 * 1024 * 1024
 const ALLOWED_MIME_TYPES = [
     'image/jpeg',
     'image/png',
@@ -108,27 +113,27 @@ ticketAdminRouter.get('/whoami', (req: any, res: any) => {
  */
 ticketAdminRouter.get('/tickets', async (req: any, res: any) => {
     try {
+        console.log("here")
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 10;
         const skip = (page - 1) * limit;
 
-        const cacheKey = `tickets:page=${page}:limit=${limit}`;
-        const isCacheEnabled = (await redisClient.get('feature:cache_enabled')) === 'true';
+        // const cacheKey = `tickets:page=${page}:limit=${limit}`;
+        // const isCacheEnabled = (await redisClient.get('feature:cache_enabled')) === 'true';
 
-        if (isCacheEnabled) {
-            const cachedData = await redisClient.get(cacheKey);
-            if (cachedData) {
-                return res.status(200).json(JSON.parse(cachedData));
-            }
-        }
-
+        // if (isCacheEnabled) {
+        //     const cachedData = await redisClient.get(cacheKey);
+        //     if (cachedData) {
+        //         return res.status(200).json(JSON.parse(cachedData));
+        //     }
+        // }
         const result = await getAllTickets(page, limit, skip);
 
-        if (isCacheEnabled) {
-            await redisClient.set(cacheKey, JSON.stringify(result));
-        }
+        // if (isCacheEnabled) {
+        //     await redisClient.set(cacheKey, JSON.stringify(result));
+        // }
 
-        res.status(200).json(result );
+        res.status(200).json(result);
     } catch (error) {
         console.error('Error in fetching tickets:', error);
         res.status(500).json({ message: 'Error fetching tickets', error });
@@ -547,5 +552,52 @@ ticketAdminRouter.get('/cache-status', async (_, res) => {
 
     res.json({ cacheEnabled: isCacheEnabled })
 })
+
+ticketAdminRouter.get("/notes", async (_, res) => {
+    const result = await getAllNotes();
+    res.status(result.success ? 200 : 500).json(result);
+});
+
+
+ticketAdminRouter.post("/notes", async (req: any, res: any) => {
+    const { heading, items } = req.body;
+    const createdBy = req.user._id;
+    const author = req.user.email;
+
+    if (!heading || !items || !author || !createdBy) {
+        return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    const result = await addNote(heading, items, author, createdBy);
+    res.status(result.success ? 201 : 500).json(result);
+});
+
+ticketAdminRouter.delete("/notes/:id", async (req:any, res:any) => {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ success: false, message: "Invalid note ID" });
+    }
+
+    const result = await deleteNote(id);
+    res.status(result.success ? 200 : 404).json(result);
+});
+
+ticketAdminRouter.patch("/notes/:id", async (req: any, res: any) => {
+    const { id } = req.params;
+    const updates = req.body;
+
+    if (!updates || Object.keys(updates).length === 0) {
+        return res.status(400).json({ success: false, message: "No update data provided" });
+    }
+
+    const result = await updateNote(id, updates);
+
+    if (!result.success) {
+        return res.status(400).json(result);
+    }
+
+    return res.status(200).json(result);
+});
 
 export default ticketAdminRouter

@@ -12,6 +12,7 @@ const getCollection = (
         | 'admins'
         | 'analytics'
         | 'offers'
+        | 'notes'
 ) => {
     if (!db) {
         throw new Error(
@@ -739,3 +740,88 @@ export const resetPassword = async (id: string, newPassword: string) => {
         return { success: false, message: error }
     }
 }
+
+export const getAllNotes = async () => {
+    const collection = getCollection("notes");
+
+    try {
+        const notes = await collection.find().toArray();
+
+        return { success: true, notes };
+    } catch (error) {
+        console.error(error);
+        return { success: false, message: "Internal server error" };
+    }
+};
+
+export const addNote = async (
+    heading: string,
+    items: { description: string; toggle?: boolean; tags?: string[] }[],
+    author: string,
+    createdBy: string
+) => {
+    const collection = getCollection("notes");
+
+    try {
+        const result = await collection.insertOne({
+            heading,
+            items,
+            author,
+            createdBy: new ObjectId(createdBy),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            isArchived: false
+        });
+
+        return { success: true, noteId: result.insertedId };
+    } catch (error) {
+        console.error(error);
+        return { success: false, message: "Internal server error" };
+    }
+};
+
+export const deleteNote = async (noteId: string) => {
+    const collection = getCollection("notes");
+
+    try {
+        const result = await collection.deleteOne({ _id: new ObjectId(noteId) });
+
+        if (result.deletedCount === 0) {
+            return { success: false, message: "Note not found" };
+        }
+
+        return { success: true, message: "Note deleted successfully" };
+    } catch (error) {
+        console.error(error);
+        return { success: false, message: "Internal server error" };
+    }
+};
+
+export const updateNote = async (noteId: string, updates: Partial<{ heading: string; items: any[]; isArchived: boolean }>) => {
+    try {
+        const collection = getCollection("notes");
+
+        if (!ObjectId.isValid(noteId)) {
+            return { success: false, message: "Invalid note ID" };
+        }
+
+        const result = await collection.updateOne(
+            { _id: new ObjectId(noteId) },
+            { 
+                $set: { 
+                    ...updates, 
+                    updatedAt: new Date() 
+                } 
+            }
+        );
+
+        if (result.matchedCount === 0) {
+            return { success: false, message: "Note not found" };
+        }
+
+        return { success: true, message: "Note updated successfully" };
+    } catch (error) {
+        console.error(error);
+        return { success: false, message: "Internal server error" };
+    }
+};

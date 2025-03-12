@@ -10,7 +10,7 @@ async function main() {
     await connectToDatabase();
     
     const job = new CronJob(
-      '*/10 * * * *',
+      '*/5 * * * *',
       function () {
         runAnalyticsScheduler();
       },

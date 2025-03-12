@@ -29,15 +29,21 @@ const getCollection = (
  */
 export const createTicket = async (data: Ticket) => {
     try {
-        const collection = getCollection('tickets')
-        const result = await collection.insertOne(data)
-        console.log('Ticket inserted with ID:', result.insertedId)
-        return result.insertedId
+        const ticketsCollection = getCollection('tickets');
+        const offersCollection = getCollection('offers');
+        const activeOffer = await offersCollection.findOne({ active: true });
+        if (activeOffer) {
+            data.offerId = activeOffer._id;
+            data.price = activeOffer.price;
+        }
+        const result = await ticketsCollection.insertOne(data);
+        console.log('Ticket inserted with ID:', result.insertedId);
+        return result.insertedId;
     } catch (error) {
-        console.error('Error creating ticket:', error)
-        throw error
+        console.error('Error creating ticket:', error);
+        throw error;
     }
-}
+};
 
 /**
  * Update a document in the `tickets` collection
@@ -518,7 +524,7 @@ export const findAdminById = async (id: string) => {
 }
 
 const getTicketAnalytics = async () => {
-    const collection = getCollection('tickets')
+    const collection = getCollection('tickets');
     const result = await collection
         .aggregate([
             {
@@ -538,6 +544,15 @@ const getTicketAnalytics = async () => {
                             $cond: [{ $eq: ['$entry_marked', true] }, 1, 0],
                         },
                     },
+                    totalRevenue: {
+                        $sum: {
+                            $cond: [
+                                { $ne: ['$price', null] },
+                                { $toDouble: '$price' },
+                                0,
+                            ],
+                        },
+                    },
                 },
             },
             {
@@ -547,14 +562,15 @@ const getTicketAnalytics = async () => {
                     completedTicketsStage2: 1,
                     verifiedPayments: 1,
                     entriesMarked: 1,
+                    totalRevenue: 1,
                     timestamp: '$$NOW',
                 },
             },
         ])
-        .toArray()
+        .toArray();
 
-    return result[0] || {}
-}
+    return result[0] || {};
+};
 
 export const saveAnalytics = async () => {
     const analyticsData = await getTicketAnalytics()

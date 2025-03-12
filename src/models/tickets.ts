@@ -24,6 +24,8 @@ export default class Ticket {
     public sheetId?: string,
     public templatesSent?: TemplateSent[],
     public last_email_sent_at?: Date,
-    public id?: ObjectId
+    public id?: ObjectId,
+    public offerId?: ObjectId,
+    public price?: string
   ) {}
 }

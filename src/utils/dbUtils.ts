@@ -29,21 +29,21 @@ const getCollection = (
  */
 export const createTicket = async (data: Ticket) => {
     try {
-        const ticketsCollection = getCollection('tickets');
-        const offersCollection = getCollection('offers');
-        const activeOffer = await offersCollection.findOne({ active: true });
+        const ticketsCollection = getCollection('tickets')
+        const offersCollection = getCollection('offers')
+        const activeOffer = await offersCollection.findOne({ active: true })
         if (activeOffer) {
-            data.offerId = activeOffer._id;
-            data.price = activeOffer.price;
+            data.offerId = activeOffer._id
+            data.price = activeOffer.price
         }
-        const result = await ticketsCollection.insertOne(data);
-        console.log('Ticket inserted with ID:', result.insertedId);
-        return result.insertedId;
+        const result = await ticketsCollection.insertOne(data)
+        console.log('Ticket inserted with ID:', result.insertedId)
+        return result.insertedId
     } catch (error) {
-        console.error('Error creating ticket:', error);
-        throw error;
+        console.error('Error creating ticket:', error)
+        throw error
     }
-};
+}
 
 /**
  * Update a document in the `tickets` collection
@@ -524,7 +524,7 @@ export const findAdminById = async (id: string) => {
 }
 
 const getTicketAnalytics = async () => {
-    const collection = getCollection('tickets');
+    const collection = getCollection('tickets')
     const result = await collection
         .aggregate([
             {
@@ -547,7 +547,12 @@ const getTicketAnalytics = async () => {
                     totalRevenue: {
                         $sum: {
                             $cond: [
-                                { $ne: ['$price', null] },
+                                {
+                                    $and: [
+                                        { $eq: ['$stage', '2'] }, // Only count tickets at stage 2
+                                        { $ne: ['$price', null] },
+                                    ],
+                                },
                                 { $toDouble: '$price' },
                                 0,
                             ],
@@ -567,10 +572,10 @@ const getTicketAnalytics = async () => {
                 },
             },
         ])
-        .toArray();
+        .toArray()
 
-    return result[0] || {};
-};
+    return result[0] || {}
+}
 
 export const saveAnalytics = async () => {
     const analyticsData = await getTicketAnalytics()
@@ -716,7 +721,7 @@ export const addAdmin = async (email: string, password: string) => {
             email,
             password: hashedPassword,
             isSuperAdmin: false,
-            hasOnboarded: false
+            hasOnboarded: false,
         })
 
         return { success: true, adminId: result.insertedId }
@@ -758,17 +763,17 @@ export const resetPassword = async (id: string, newPassword: string) => {
 }
 
 export const getAllNotes = async () => {
-    const collection = getCollection("notes");
+    const collection = getCollection('notes')
 
     try {
-        const notes = await collection.find().toArray();
+        const notes = await collection.find().toArray()
 
-        return { success: true, notes };
+        return { success: true, notes }
     } catch (error) {
-        console.error(error);
-        return { success: false, message: "Internal server error" };
+        console.error(error)
+        return { success: false, message: 'Internal server error' }
     }
-};
+}
 
 export const addNote = async (
     heading: string,
@@ -776,7 +781,7 @@ export const addNote = async (
     author: string,
     createdBy: string
 ) => {
-    const collection = getCollection("notes");
+    const collection = getCollection('notes')
 
     try {
         const result = await collection.insertOne({
@@ -786,58 +791,61 @@ export const addNote = async (
             createdBy: new ObjectId(createdBy),
             createdAt: new Date(),
             updatedAt: new Date(),
-            isArchived: false
-        });
+            isArchived: false,
+        })
 
-        return { success: true, noteId: result.insertedId };
+        return { success: true, noteId: result.insertedId }
     } catch (error) {
-        console.error(error);
-        return { success: false, message: "Internal server error" };
+        console.error(error)
+        return { success: false, message: 'Internal server error' }
     }
-};
+}
 
 export const deleteNote = async (noteId: string) => {
-    const collection = getCollection("notes");
+    const collection = getCollection('notes')
 
     try {
-        const result = await collection.deleteOne({ _id: new ObjectId(noteId) });
+        const result = await collection.deleteOne({ _id: new ObjectId(noteId) })
 
         if (result.deletedCount === 0) {
-            return { success: false, message: "Note not found" };
+            return { success: false, message: 'Note not found' }
         }
 
-        return { success: true, message: "Note deleted successfully" };
+        return { success: true, message: 'Note deleted successfully' }
     } catch (error) {
-        console.error(error);
-        return { success: false, message: "Internal server error" };
+        console.error(error)
+        return { success: false, message: 'Internal server error' }
     }
-};
+}
 
-export const updateNote = async (noteId: string, updates: Partial<{ heading: string; items: any[]; isArchived: boolean }>) => {
+export const updateNote = async (
+    noteId: string,
+    updates: Partial<{ heading: string; items: any[]; isArchived: boolean }>
+) => {
     try {
-        const collection = getCollection("notes");
+        const collection = getCollection('notes')
 
         if (!ObjectId.isValid(noteId)) {
-            return { success: false, message: "Invalid note ID" };
+            return { success: false, message: 'Invalid note ID' }
         }
 
         const result = await collection.updateOne(
             { _id: new ObjectId(noteId) },
-            { 
-                $set: { 
-                    ...updates, 
-                    updatedAt: new Date() 
-                } 
+            {
+                $set: {
+                    ...updates,
+                    updatedAt: new Date(),
+                },
             }
-        );
+        )
 
         if (result.matchedCount === 0) {
-            return { success: false, message: "Note not found" };
+            return { success: false, message: 'Note not found' }
         }
 
-        return { success: true, message: "Note updated successfully" };
+        return { success: true, message: 'Note updated successfully' }
     } catch (error) {
-        console.error(error);
-        return { success: false, message: "Internal server error" };
+        console.error(error)
+        return { success: false, message: 'Internal server error' }
     }
-};
+}

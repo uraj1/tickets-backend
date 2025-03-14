@@ -10,11 +10,12 @@ import { invalidateTicketCache } from "../services/cache.service";
 export const ticketsRouter = express.Router();
 ticketsRouter.use(express.json());
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/png",
   "image/gif",
+  "image/jpg",
   "application/pdf",
 ];
 

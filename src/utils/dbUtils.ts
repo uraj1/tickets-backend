@@ -228,14 +228,24 @@ export const searchTickets = async (
 export const getAllTickets = async (
     page: number,
     limit: number,
-    skip: number
+    skip: number,
+    filterObject: { [key: string]: string }
 ) => {
     try {
         const collection = getCollection('tickets')
+        const isInvalidFilter =
+            Object.keys(filterObject).length === 1 && Object.keys(filterObject)[0] === '' && filterObject[''] === '';
 
-        const totalTickets = await collection.countDocuments()
+        const query = isInvalidFilter ? {} : filterObject
+        let totalTickets
+        if (JSON.stringify(query) === "{}") {
+            totalTickets = await collection.countDocuments({});
+        } else {
+            totalTickets = await collection.countDocuments(query);
+        }
+        console.log(totalTickets)
         const tickets = await collection
-            .find({})
+            .find(query)
             .skip(skip)
             .limit(limit)
             .sort({ createdAt: -1 })

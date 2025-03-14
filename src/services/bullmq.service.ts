@@ -33,7 +33,7 @@ const worker = new Worker(
             const s3Response = await uploadToS3(
                 'bucket.tedx',
                 base64data,
-                fileName,
+                fileName || "unknown",
                 mimetype
             )
 

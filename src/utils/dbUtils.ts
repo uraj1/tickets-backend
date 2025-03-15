@@ -107,7 +107,6 @@ export const getAttendees = async (page: number, limit: number) => {
 
         const totalAttendees = tickets.length
         if (!tickets.length) {
-            console.log('No attendees found')
             return []
         }
 
@@ -173,6 +172,7 @@ export const searchTickets = async (
                     ticket_given: 1,
                     entry_marked: 1,
                     ticket_number: 1,
+                    is_archived: 1,
                     score: { $meta: 'searchScore' },
                 },
             },
@@ -234,16 +234,17 @@ export const getAllTickets = async (
     try {
         const collection = getCollection('tickets')
         const isInvalidFilter =
-            Object.keys(filterObject).length === 1 && Object.keys(filterObject)[0] === '' && filterObject[''] === '';
-
-        const query = isInvalidFilter ? {} : filterObject
-        let totalTickets
-        if (JSON.stringify(query) === "{}") {
-            totalTickets = await collection.countDocuments({});
-        } else {
-            totalTickets = await collection.countDocuments(query);
+            Object.keys(filterObject).length === 1 &&
+            Object.keys(filterObject)[0] === '' &&
+            filterObject[''] === ''
+        const baseQuery = {
+            $or: [{ is_archived: { $exists: false } }, { is_archived: false }],
         }
-        console.log(totalTickets)
+        const query = isInvalidFilter
+            ? baseQuery
+            : { $and: [baseQuery, filterObject] }
+        let totalTickets
+        totalTickets = await collection.countDocuments(query)
         const tickets = await collection
             .find(query)
             .skip(skip)
@@ -538,6 +539,14 @@ const getTicketAnalytics = async () => {
     const result = await collection
         .aggregate([
             {
+                $match: {
+                    $or: [
+                        { is_archived: false },
+                        { is_archived: { $exists: false } },
+                    ],
+                },
+            },
+            {
                 $group: {
                     _id: null,
                     totalTickets: { $sum: 1 },
@@ -559,7 +568,7 @@ const getTicketAnalytics = async () => {
                             $cond: [
                                 {
                                     $and: [
-                                        { $eq: ['$stage', '2'] }, // Only count tickets at stage 2
+                                        { $eq: ['$stage', '2'] },
                                         { $ne: ['$price', null] },
                                     ],
                                 },
@@ -857,5 +866,59 @@ export const updateNote = async (
     } catch (error) {
         console.error(error)
         return { success: false, message: 'Internal server error' }
+    }
+}
+
+export const toggleArchive = async (id: string) => {
+    if (!ObjectId.isValid(id)) {
+        throw new Error('Invalid ticket ID')
+    }
+
+    const collection = getCollection('tickets')
+
+    const ticket = await collection.findOne({ _id: new ObjectId(id) })
+
+    if (!ticket) {
+        throw new Error('Ticket not found')
+    }
+
+    const newArchiveStatus = !ticket.is_archived
+
+    const result = await collection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { is_archived: newArchiveStatus } }
+    )
+
+    if (result.modifiedCount === 0) {
+        throw new Error('Failed to update ticket')
+    }
+
+    return {
+        message: `Ticket ${newArchiveStatus ? 'archived' : 'unarchived'} successfully`,
+        is_archived: newArchiveStatus,
+    }
+}
+
+export const getArchivedTickets = async (page: number, limit: number) => {
+    const collection = getCollection('tickets')
+
+    const skip = (page - 1) * limit
+
+    const totalArchivedTickets = await collection.countDocuments({
+        is_archived: true,
+    })
+
+    const tickets = await collection
+        .find({ is_archived: true })
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .toArray()
+
+    return {
+        total: totalArchivedTickets,
+        page,
+        limit,
+        tickets,
     }
 }

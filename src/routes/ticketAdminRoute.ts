@@ -21,6 +21,8 @@ import {
     getAllNotes,
     deleteNote,
     updateNote,
+    toggleArchive,
+    getArchivedTickets,
 } from '../utils/dbUtils'
 import {
     isLoggedIn,
@@ -405,6 +407,19 @@ ticketAdminRouter.get('/offers/list', async (_, res: Response) => {
     }
 })
 
+ticketAdminRouter.get('/tickets/archived', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+
+        const result = await getArchivedTickets(page, limit);
+        res.status(200).json(result);
+    } catch (error: any) {
+        console.error('Error fetching archived tickets:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
 // All routes below this can be only accessed by a super admin.
 ticketAdminRouter.use(requireSuperAdmin)
 
@@ -562,56 +577,76 @@ ticketAdminRouter.get('/cache-status', async (_, res) => {
     res.json({ cacheEnabled: isCacheEnabled })
 })
 
-ticketAdminRouter.get('/notes', async (_, res) => {
-    const result = await getAllNotes()
-    res.status(result.success ? 200 : 500).json(result)
+ticketAdminRouter.get('/cache-status', async (_, res) => {
+    const isCacheEnabled =
+        (await redisClient.get('feature:cache_enabled')) === 'true'
+
+    res.json({ cacheEnabled: isCacheEnabled })
 })
 
-ticketAdminRouter.post('/notes', async (req: any, res: any) => {
-    const { heading, items } = req.body
-    const createdBy = req.user._id
-    const author = req.user.email
-
-    if (!heading || !items || !author || !createdBy) {
-        return res
-            .status(400)
-            .json({ success: false, message: 'Missing required fields' })
+ticketAdminRouter.patch('/tickets/:id/archive', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await toggleArchive(id);
+        res.status(200).json(result);
+    } catch (error: any) {
+        console.error('Error toggling archive status:', error);
+        res.status(400).json({ message: error.message });
     }
+});
 
-    const result = await addNote(heading, items, author, createdBy)
-    res.status(result.success ? 201 : 500).json(result)
-})
+// Depricated Notes functionality
 
-ticketAdminRouter.delete('/notes/:id', async (req: any, res: any) => {
-    const { id } = req.params
+// ticketAdminRouter.get('/notes', async (_, res) => {
+//     const result = await getAllNotes()
+//     res.status(result.success ? 200 : 500).json(result)
+// })
 
-    if (!ObjectId.isValid(id)) {
-        return res
-            .status(400)
-            .json({ success: false, message: 'Invalid note ID' })
-    }
+// ticketAdminRouter.post('/notes', async (req: any, res: any) => {
+//     const { heading, items } = req.body
+//     const createdBy = req.user._id
+//     const author = req.user.email
 
-    const result = await deleteNote(id)
-    res.status(result.success ? 200 : 404).json(result)
-})
+//     if (!heading || !items || !author || !createdBy) {
+//         return res
+//             .status(400)
+//             .json({ success: false, message: 'Missing required fields' })
+//     }
 
-ticketAdminRouter.patch('/notes/:id', async (req: any, res: any) => {
-    const { id } = req.params
-    const updates = req.body
+//     const result = await addNote(heading, items, author, createdBy)
+//     res.status(result.success ? 201 : 500).json(result)
+// })
 
-    if (!updates || Object.keys(updates).length === 0) {
-        return res
-            .status(400)
-            .json({ success: false, message: 'No update data provided' })
-    }
+// ticketAdminRouter.delete('/notes/:id', async (req: any, res: any) => {
+//     const { id } = req.params
 
-    const result = await updateNote(id, updates)
+//     if (!ObjectId.isValid(id)) {
+//         return res
+//             .status(400)
+//             .json({ success: false, message: 'Invalid note ID' })
+//     }
 
-    if (!result.success) {
-        return res.status(400).json(result)
-    }
+//     const result = await deleteNote(id)
+//     res.status(result.success ? 200 : 404).json(result)
+// })
 
-    return res.status(200).json(result)
-})
+// ticketAdminRouter.patch('/notes/:id', async (req: any, res: any) => {
+//     const { id } = req.params
+//     const updates = req.body
+
+//     if (!updates || Object.keys(updates).length === 0) {
+//         return res
+//             .status(400)
+//             .json({ success: false, message: 'No update data provided' })
+//     }
+
+//     const result = await updateNote(id, updates)
+
+//     if (!result.success) {
+//         return res.status(400).json(result)
+//     }
+
+//     return res.status(200).json(result)
+// })
 
 export default ticketAdminRouter

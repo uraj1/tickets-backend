@@ -23,6 +23,8 @@ import {
     updateNote,
     toggleArchive,
     getArchivedTickets,
+    getNotifications,
+    markNotificationsAsRead,
 } from '../utils/dbUtils'
 import {
     isLoggedIn,
@@ -416,6 +418,41 @@ ticketAdminRouter.get('/tickets/archived', async (req, res) => {
         res.status(200).json(result);
     } catch (error: any) {
         console.error('Error fetching archived tickets:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+ticketAdminRouter.get('/notifications', async (req: any, res: any) => {
+    try {
+        const userId = req.user._id as string;
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+
+        if (!userId) {
+            return res.status(400).json({ message: 'User ID is required' });
+        }
+
+        const result = await getNotifications(userId, page, limit);
+        res.status(200).json(result);
+    } catch (error: any) {
+        console.error('Error fetching notifications:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+ticketAdminRouter.patch('/notifications', async (req: any, res: any) => {
+    try {
+        const userId = req.user._id as string
+        const { notificationIds } = req.body;
+
+        if (!userId || !notificationIds || !Array.isArray(notificationIds)) {
+            return res.status(400).json({ message: 'Invalid request body' });
+        }
+
+        await markNotificationsAsRead(userId, notificationIds);
+        res.status(200).json({ message: 'Notification status updated' });
+    } catch (error: any) {
+        console.error('Error updating notification status:', error);
         res.status(400).json({ message: error.message });
     }
 });

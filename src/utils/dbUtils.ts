@@ -5,6 +5,8 @@ import { ObjectId } from 'mongodb'
 import Offers from '../models/offers'
 import bcrypt from 'bcryptjs'
 
+import { notificationQueue } from '../services/bullmq.service'
+
 const getCollection = (
     collectionName:
         | 'tickets'
@@ -13,6 +15,7 @@ const getCollection = (
         | 'analytics'
         | 'offers'
         | 'notes'
+        | 'notifications'
 ) => {
     if (!db) {
         throw new Error(
@@ -60,6 +63,17 @@ export const updateTicket = async (
         const filter = { _id: new ObjectId(id) }
         const updateDoc = { $set: updateData }
         const result = await collection.updateOne(filter, updateDoc)
+
+        // Bit out of consistency in code here, notification worker is invoked here.
+        const ticket = await collection.findOne<Ticket>(filter, { projection: { name: 1 } });
+        const message = `${ticket?.name} has successfully purchased a ticket. 🎉`;
+        await notificationQueue.add('notification', {
+            _id: ticket?.id,
+            message,
+            ts: new Date(),
+            read_by: [],
+        })
+
         console.log(
             `Matched ${result.matchedCount} ticket(s), Modified ${result.modifiedCount} ticket(s)`
         )
@@ -922,3 +936,92 @@ export const getArchivedTickets = async (page: number, limit: number) => {
         tickets,
     }
 }
+
+export const addNotification = async (message: string, ts: Date) => {
+    const notificationCollection = getCollection('notifications')
+    try {
+        const result = await notificationCollection.insertOne({
+            message,
+            ts: new Date(ts),
+            read_by: []
+        })
+
+        return { success: true, notifId: result.insertedId }
+    } catch (error) {
+        console.error(error)
+        return { success: false, message: 'Internal server error' }
+    }
+}
+
+export const getNotifications = async (
+    userId: string,
+    page: number,
+    limit: number
+) => {
+    try {
+        const collection = getCollection("notifications");
+        const skip = (page - 1) * limit;
+        const userObjectId = new ObjectId(userId);
+
+        const notifications = await collection
+            .aggregate([
+                {
+                    $addFields: {
+                        read: {
+                            $cond: {
+                                if: { $in: [userObjectId, "$read_by"] },
+                                then: true,
+                                else: false
+                            }
+                        }
+                    }
+                },
+                { $sort: { ts: -1 } },
+                { $skip: skip },
+                { $limit: limit }
+            ])
+            .toArray();
+
+        const total = await collection.countDocuments();
+
+        return {
+            total,
+            page,
+            limit,
+            notifications
+        };
+    } catch (error) {
+        console.error("Error fetching notifications:", error);
+        throw new Error("Failed to fetch notifications");
+    }
+};
+
+export const markNotificationsAsRead = async (
+    userId: string,
+    notificationIds: string[]
+) => {
+    try {
+        const collection = getCollection("notifications");
+        const userObjectId = new ObjectId(userId);
+
+        const objectIds = notificationIds.map((id) => new ObjectId(id));
+
+        const result = await collection.updateMany(
+            {
+                _id: { $in: objectIds },
+                read_by: { $ne: userObjectId }
+            },
+            {
+                $addToSet: { read_by: userObjectId }
+            }
+        );
+
+        return {
+            matchedCount: result.matchedCount,
+            modifiedCount: result.modifiedCount
+        };
+    } catch (error) {
+        console.error("Error marking notifications as read:", error);
+        throw new Error("Failed to update notifications");
+    }
+};

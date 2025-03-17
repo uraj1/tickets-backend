@@ -65,7 +65,7 @@ ticketsRouter.post("/save-progress", async (req: Request, res: any) => {
       payment_verified: false,
       ticket_given: false,
     });
-    await invalidateTicketCache()
+    // await invalidateTicketCache()
     logger.info(`Ticket created successfully with ID: ${createdTicket.id}`);
 
     res.status(200).json({ id: createdTicket, message: `Success at stage 1` });

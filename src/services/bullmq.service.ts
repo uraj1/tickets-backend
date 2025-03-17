@@ -2,6 +2,7 @@ import { Queue, Worker, Job } from 'bullmq'
 import { logger } from './logger.service'
 import { uploadToS3 } from './s3.service'
 import {
+    addNotification,
     getTicketById,
     getTicketsMarkedAsGiven,
     updateEmailSentStatus,
@@ -10,15 +11,19 @@ import {
 import { formatReadableDate } from '../utils/timeUtils'
 import { appendToSheet } from '../utils/sheets'
 import { sendEmail } from './nodemailer.service'
-import * as dotenv from "dotenv";
+import * as dotenv from 'dotenv'
+import { sendNotification } from './notification.service'
 
-dotenv.config();
+dotenv.config()
 
 const connection = { host: process.env.REDIS_HOST, port: 6379 }
 
 export const progressQueue = new Queue('finalize', { connection })
 export const emailQueue = new Queue('bulk-email', { connection })
 export const onboardingEmailQueue = new Queue('onboarding-email', {
+    connection,
+})
+export const notificationQueue = new Queue('notification', {
     connection,
 })
 
@@ -33,7 +38,7 @@ const worker = new Worker(
             const s3Response = await uploadToS3(
                 'bucket.tedx',
                 base64data,
-                fileName || "unknown",
+                fileName || 'unknown',
                 mimetype
             )
 
@@ -132,7 +137,7 @@ const onboardingEmailWorker = new Worker(
 
         try {
             const subject = 'Welcome to the TEDxNITKKR Management Portal 🎉'
-            const body =`WELCOME TO THE TEDxNITKKR MANAGEMENT PORTAL! 🚀  
+            const body = `WELCOME TO THE TEDxNITKKR MANAGEMENT PORTAL! 🚀  
 We're thrilled to have you on board as a key part of our team.  
 
 🔑 Your login credentials:  
@@ -166,6 +171,24 @@ TEDxNITKKR TEAM
     { connection }
 )
 
+const notificationWorker = new Worker(
+    'notification',
+    async (job: Job) => {
+        const { message, ts } = job.data
+        try {
+            await addNotification(message, ts);
+            await sendNotification({message, ts});
+            logger.info(`Notification with message:${message} sent succesfully!`)
+        } catch (error) {
+            logger.error(`Error in inserting notification ${message}: ${error}`)
+            throw error
+        }
+    },
+    {
+        connection,
+    }
+)
+
 emailWorker.on('completed', (job) => {
     logger.info(`Email job ${job.id} completed successfully.`)
 })
@@ -182,10 +205,22 @@ worker.on('failed', (job, err) => {
     logger.error(`Job ${job?.id} failed with error: ${err.message}`)
 })
 
-onboardingEmailWorker.on("completed", (job) => {
-  logger.info(`Onboarding email job ${job.id} completed successfully.`);
-});
+onboardingEmailWorker.on('completed', (job) => {
+    logger.info(`Onboarding email job ${job.id} completed successfully.`)
+})
 
-onboardingEmailWorker.on("failed", (job, err) => {
-  logger.error(`Onboarding email job ${job?.id} failed with error: ${err.message}`);
-});
+onboardingEmailWorker.on('failed', (job, err) => {
+    logger.error(
+        `Onboarding email job ${job?.id} failed with error: ${err.message}`
+    )
+})
+
+notificationWorker.on('completed', (job) => {
+    logger.info(`notification job ${job.id} completed successfully.`)
+})
+
+notificationWorker.on('failed', (job, err) => {
+    logger.error(
+        `notification job ${job?.id} failed with error: ${err.message}`
+    )
+})

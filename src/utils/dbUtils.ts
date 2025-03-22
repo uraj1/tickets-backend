@@ -421,13 +421,13 @@ export const getAllEmailTemplates = async () => {
     }
 }
 
-export const getTicketsMarkedAsGiven = async (templateId: string) => {
+export const getTicketsPaymentVerified = async (templateId: string) => {
     try {
         const collection = getCollection('tickets')
 
         const tickets = await collection
             .find({
-                ticket_given: true,
+                payment_verified: true,
                 templatesSent: {
                     $not: {
                         $elemMatch: { templateId: new ObjectId(templateId) },

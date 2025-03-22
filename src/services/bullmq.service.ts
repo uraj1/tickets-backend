@@ -4,7 +4,7 @@ import { uploadToS3 } from './s3.service'
 import {
     addNotification,
     getTicketById,
-    getTicketsMarkedAsGiven,
+    getTicketsPaymentVerified,
     updateEmailSentStatus,
     updateTicket,
 } from '../utils/dbUtils'
@@ -81,7 +81,7 @@ const emailWorker = new Worker(
         logger.info(`Processing email job for Ticket(s)`)
 
         try {
-            const tickets = await getTicketsMarkedAsGiven(templateId)
+            const tickets = await getTicketsPaymentVerified(templateId)
 
             if (tickets.length === 0) {
                 logger.info('No tickets marked as given, no emails to send.')

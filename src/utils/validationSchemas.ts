@@ -14,7 +14,7 @@ export const formDetails = z.object({
   branchOther: z.string().optional(),
 });
 
-
+// create validation schema for admin
 export const adminsSchema = z.object({
   email: z.string().email(),
 })

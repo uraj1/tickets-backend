@@ -8,6 +8,8 @@ const opts = {
 
 const rateLimiter = new RateLimiterMemory(opts);
 
+// This middleware will limit the number of requests to 200 per 2 seconds
+// and will return a 429 status code if the limit is exceeded
 export const limiter = async (req: any, res: any, next: NextFunction) => {
   try {
     await rateLimiter.consume(req.connection.remoteAddress);

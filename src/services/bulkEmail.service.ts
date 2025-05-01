@@ -1,6 +1,7 @@
 import { emailQueue } from "./bullmq.service";
 import { logger } from "./logger.service";
 
+// This function adds an email job to the queue
 export const addEmailToQueue = async (
   ticketId: string,
   subject: string,
